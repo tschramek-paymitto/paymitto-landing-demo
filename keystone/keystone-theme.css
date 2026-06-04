@@ -1,0 +1,71 @@
+/* ==========================================================================
+   Keystone Bank — "GlobalSend"  ·  Concept B theme
+   Layers on top of ../styles.css (the shared PayMitto design system).
+   Same brand palette + type; a more premium, structured, Meridian-leaning
+   treatment with squared geometry and a split dark hero — so a client can
+   compare two distinct takes on the same best-practice page.
+   ========================================================================== */
+
+/* Squarer geometry = a more buttoned-up, "big bank" feel */
+:root {
+  --radius-pill: 9px;
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-sm: 6px;
+}
+
+/* Accents lean Meridian (brand secondary); CTAs stay Sunrise per brand */
+.eyebrow { color: var(--pm-meridian); }
+.step__num {
+  background: var(--pm-meridian);
+  box-shadow: 0 14px 30px -10px rgba(68, 81, 246, 0.5);
+}
+.card__icon { background: var(--pm-meridian-lightest); color: var(--pm-meridian); }
+
+/* --- Split, dark hero (reuses the .hero--photo markup) --- */
+.hero--photo {
+  background: linear-gradient(155deg, #1F1093 0%, #181270 46%, #120F0D 100%);
+  min-height: 588px;
+}
+.hero__bg {
+  left: auto;
+  right: 0;
+  width: 46%;
+  transform: none;
+  background-image: url('../assets/photos/hero-gather.jpg');
+  background-position: center;
+}
+.hero__scrim {
+  background: linear-gradient(90deg,
+    #1F1093 0%,
+    #1F1093 40%,
+    rgba(31, 16, 147, 0.82) 54%,
+    rgba(31, 16, 147, 0.15) 67%,
+    rgba(18, 15, 13, 0) 82%);
+}
+.hero__inner { max-width: 560px; }
+.hero__eyebrow {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: var(--pm-white);
+  box-shadow: none;
+}
+.hero__eyebrow .dot { background: var(--pm-sunrise); }
+.hero--photo .hero__trust svg { color: var(--pm-sunrise); }
+
+/* --- Premium dark "moments" section --- */
+.moments { background: linear-gradient(180deg, #1F1093 0%, #120F0D 100%); }
+.moments::after { background: none; }
+
+/* --- Benefit cards: a crisp top accent on hover --- */
+.card { box-shadow: var(--shadow-sm); border-top: 3px solid transparent; }
+.card:hover { border-top-color: var(--pm-meridian); }
+
+/* --- Stacked hero on smaller screens (photo recedes behind copy) --- */
+@media (max-width: 940px) {
+  .hero__bg { left: 0; right: 0; width: 100%; opacity: 0.16; }
+  .hero__scrim {
+    background: linear-gradient(180deg, rgba(31, 16, 147, 0.82), rgba(18, 15, 13, 0.9));
+  }
+  .hero__inner { max-width: none; }
+}

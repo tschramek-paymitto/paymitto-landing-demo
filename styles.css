@@ -861,6 +861,161 @@ h2.section-title {
   * { animation: none !important; }
 }
 
+/* ==========================================================================
+   Photography additions (Variant A)
+   ========================================================================== */
+
+/* --- Photographic hero --- */
+.hero--photo {
+  position: relative;
+  min-height: 640px;
+  display: flex;
+  align-items: center;
+  padding-block: 104px 88px;
+  background: var(--pm-black);
+  overflow: hidden;
+}
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  background: url('assets/photos/hero-warm.jpg') 60% 32% / cover no-repeat;
+  transform: scale(1.02);
+}
+.hero__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(18,15,13,0.88) 0%, rgba(18,15,13,0.6) 36%, rgba(18,15,13,0.15) 68%, rgba(18,15,13,0) 100%),
+    linear-gradient(0deg, rgba(100,6,53,0.4), rgba(18,15,13,0) 50%);
+}
+.hero--photo .container { position: relative; z-index: 1; }
+.hero__inner { max-width: 660px; }
+.hero--photo h1 { color: var(--pm-white); margin-bottom: 20px; }
+.hero--photo .hero__sub { color: rgba(255, 255, 255, 0.92); max-width: 42ch; }
+.hero__trust--light li { color: var(--pm-white); }
+.hero--photo .hero__trust svg { color: var(--pm-sunrise); }
+
+.btn--onphoto {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--pm-white);
+  border-color: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(4px);
+}
+.btn--onphoto:hover { background: rgba(255, 255, 255, 0.22); border-color: var(--pm-white); transform: translateY(-2px); }
+
+/* --- Calculator band --- */
+.calcband { background: var(--pm-snow); }
+.calcband__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+.calcband__copy .section-title { margin-bottom: 16px; }
+.calcband__copy > p { font-size: 1.15rem; color: var(--pm-gray-600); margin-bottom: 24px; }
+.calcband__points { display: grid; gap: 13px; }
+.calcband__points li { display: flex; align-items: center; gap: 11px; font-weight: 700; color: var(--pm-gray-800); }
+.calcband__points svg { width: 20px; height: 20px; color: var(--pm-sunrise); flex: none; }
+.calcband .calc { max-width: 460px; width: 100%; justify-self: end; }
+
+/* --- Moment photo cards (override glass version) --- */
+.moment {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  min-height: 380px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--pm-gray-800);
+  backdrop-filter: none;
+}
+.moment img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+.moment:hover img { transform: scale(1.06); }
+.moment::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(18,15,13,0.86) 0%, rgba(18,15,13,0.34) 46%, rgba(18,15,13,0) 78%);
+}
+.moment figcaption { position: relative; z-index: 1; padding: 22px; }
+.moment figcaption h3 { color: var(--pm-white); font-size: 1.2rem; margin-bottom: 6px; }
+.moment figcaption p { color: rgba(255, 255, 255, 0.9); font-size: 0.95rem; }
+
+/* --- Testimonials --- */
+.testimonials { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.tcard {
+  margin: 0;
+  background: var(--pm-white);
+  border: 1px solid var(--pm-gray-100);
+  border-radius: var(--radius-lg);
+  padding: 30px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.tcard__stars { color: var(--pm-sunrise); letter-spacing: 3px; font-size: 1.05rem; }
+.tcard blockquote { margin: 0; flex: 1; font-size: 1.08rem; line-height: 1.55; color: var(--pm-gray-800); }
+.tcard figcaption { display: flex; align-items: center; gap: 13px; }
+.tcard__avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: none; }
+.tcard__monogram {
+  width: 48px; height: 48px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+  background: var(--pm-gradient-reverse); color: var(--pm-white);
+  font-family: var(--pm-font-display); font-weight: 700; font-size: 1.02rem;
+}
+.tcard__person { display: flex; flex-direction: column; line-height: 1.3; }
+.tcard__person strong { color: var(--pm-black); }
+.tcard__person small { color: var(--pm-gray-600); font-size: 0.82rem; }
+
+/* --- Variant switcher --- */
+.variant-switch {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--pm-white);
+  border: 1px solid var(--pm-gray-100);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-pill);
+  padding: 6px 8px 6px 15px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.variant-switch__title { color: var(--pm-gray-600); margin-right: 2px; }
+.variant-switch__opt { padding: 7px 13px; border-radius: var(--radius-pill); color: var(--pm-meridian); text-decoration: none; white-space: nowrap; }
+.variant-switch__opt.is-active { background: var(--pm-black); color: var(--pm-white); }
+.variant-switch__opt:not(.is-active):hover { background: var(--pm-snow); text-decoration: none; }
+
+@media (max-width: 940px) {
+  .calcband__grid { grid-template-columns: 1fr; gap: 34px; }
+  .calcband .calc { max-width: 460px; justify-self: start; margin-inline: auto; }
+  .testimonials { grid-template-columns: 1fr; max-width: 600px; margin-inline: auto; }
+  .hero--photo { min-height: 560px; }
+}
+
+@media (max-width: 620px) {
+  .hero__bg { background-position: 66% 28%; }
+  .moment { min-height: 300px; }
+  .demo-badge span { display: none; }
+  .variant-switch { right: 10px; bottom: 10px; padding: 5px 7px 5px 11px; font-size: 0.72rem; gap: 4px; }
+  .variant-switch__title { display: none; }
+  .variant-switch__opt { padding: 6px 10px; }
+}
+
 /* --------------------------------------------------------------------------
    Responsive
    -------------------------------------------------------------------------- */
