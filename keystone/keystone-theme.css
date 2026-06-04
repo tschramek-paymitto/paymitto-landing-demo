@@ -33,7 +33,7 @@
   width: 46%;
   transform: none;
   background-image: url('../assets/photos/hero-keystone.jpg');
-  background-position: 58% center;
+  background-position: center;
 }
 .hero__scrim {
   background: linear-gradient(90deg,
