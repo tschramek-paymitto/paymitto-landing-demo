@@ -8,7 +8,7 @@ prospective and current clients.
 
 | Concept | Institution | Feature | Personality |
 |---|---|---|---|
-| **A** | Riverstone Credit Union (`/`) | "Horizon" | Warm, community, Sunrise-forward, photographic full-bleed hero |
+| **A** | Riverstone Credit Union (`/`) | "Mitto" | Warm, community, Sunrise-forward, photographic full-bleed hero |
 | **B** | Keystone Bank (`/keystone/`) | "GlobalSend" | Premium, structured, Meridian-leaning, split dark hero |
 
 Both are *Powered by PayMitto* and share one design system, one component set,
@@ -41,7 +41,7 @@ python3 -m http.server 4317
 
 ## Structure
 ```
-index.html              Concept A — Riverstone Credit Union (Horizon)
+index.html              Concept A — Riverstone Credit Union (Mitto)
 styles.css              Shared PayMitto design system + layout
 app.js                  Shared logic: rate calculator, nav, FAQ, scroll reveal
 keystone/
