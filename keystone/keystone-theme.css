@@ -30,18 +30,21 @@
 .hero__bg {
   left: auto;
   right: 0;
-  width: 46%;
+  width: 64%;
   transform: none;
   background-image: url('../assets/photos/hero-keystone.jpg');
   background-position: center;
+  /* Feather the left edge so the photo dissolves into the navy panel —
+     no hard seam between the copy box and the image. */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.5) 26%, #000 48%);
+          mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.5) 26%, #000 48%);
 }
 .hero__scrim {
+  /* Soft navy wash that fades out smoothly across the image — no hard stop */
   background: linear-gradient(90deg,
-    #1F1093 0%,
-    #1F1093 40%,
-    rgba(31, 16, 147, 0.82) 54%,
-    rgba(31, 16, 147, 0.15) 67%,
-    rgba(18, 15, 13, 0) 82%);
+    rgba(31, 16, 147, 0.5) 24%,
+    rgba(31, 16, 147, 0.18) 46%,
+    rgba(31, 16, 147, 0) 64%);
 }
 .hero__inner { max-width: 560px; }
 .hero__eyebrow {
@@ -63,7 +66,7 @@
 
 /* --- Stacked hero on smaller screens (photo recedes behind copy) --- */
 @media (max-width: 940px) {
-  .hero__bg { left: 0; right: 0; width: 100%; opacity: 0.16; }
+  .hero__bg { left: 0; right: 0; width: 100%; opacity: 0.16; -webkit-mask-image: none; mask-image: none; }
   .hero__scrim {
     background: linear-gradient(180deg, rgba(31, 16, 147, 0.82), rgba(18, 15, 13, 0.9));
   }
