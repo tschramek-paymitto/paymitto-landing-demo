@@ -1,0 +1,13 @@
+# Netlify configuration — PayMitto landing-page demos
+#
+# Static site, no build step. Repo root is published as-is:
+#   /            -> index.html            (Concept A — Riverstone / Mitto)
+#   /keystone/   -> keystone/index.html   (Concept B — Keystone / GlobalSend)
+#
+# This site is intentionally PUBLIC. There is deliberately no Basic-Auth
+# header and no password directive here. (Site-level "Password protection"
+# in the Netlify dashboard is off by default — leave it off to keep it open.)
+
+[build]
+  publish = "."
+  command = ""
