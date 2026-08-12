@@ -1,0 +1,11 @@
+{
+  "name": "paymitto-global-transfer-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PayMitto global-transfer landing-page demos with a live-FX quote widget.",
+  "scripts": {
+    "dev": "netlify dev",
+    "verify:oauth": "node scripts/verify-oauth.mjs"
+  }
+}

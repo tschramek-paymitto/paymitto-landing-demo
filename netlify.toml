@@ -1,13 +1,34 @@
 # Netlify configuration — PayMitto landing-page demos
 #
-# Static site, no build step. Repo root is published as-is:
+# Static site + a thin serverless quote layer:
 #   /            -> index.html            (Concept A — Riverstone / Mitto)
 #   /keystone/   -> keystone/index.html   (Concept B — Keystone / GlobalSend)
+#   /api/quote      -> serverless quote proxy (real-time FX)
+#   /api/corridors  -> serverless list of the client's supported corridors
 #
 # This site is intentionally PUBLIC. There is deliberately no Basic-Auth
 # header and no password directive here. (Site-level "Password protection"
 # in the Netlify dashboard is off by default — leave it off to keep it open.)
+#
+# The quote API's OAuth client_credentials live ONLY in Netlify environment
+# variables (READYREMIT_CLIENT_ID / READYREMIT_CLIENT_SECRET). They are never
+# published to the browser. See .env.example.
 
 [build]
   publish = "."
   command = ""
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Friendly /api/* paths in front of the functions.
+[[redirects]]
+  from = "/api/quote"
+  to = "/.netlify/functions/quote"
+  status = 200
+
+[[redirects]]
+  from = "/api/corridors"
+  to = "/.netlify/functions/corridors"
+  status = 200

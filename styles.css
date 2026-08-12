@@ -451,6 +451,17 @@ h2.section-title {
 }
 .field--receive .amount.flash { opacity: 0.35; }
 
+/* Subtle "fetching a live quote" state. */
+.calc.is-loading .field--receive .amount { opacity: 0.55; }
+.calc.is-loading .field--receive .field__control { animation: calc-pulse 0.9s ease-in-out infinite; }
+@keyframes calc-pulse {
+  0%, 100% { border-color: var(--pm-sunrise-light); }
+  50%      { border-color: var(--pm-sunrise); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calc.is-loading .field--receive .field__control { animation: none; }
+}
+
 .calc__methods { display: flex; gap: 8px; margin: 4px 0 16px; }
 .calc__methods button {
   flex: 1;
@@ -740,16 +751,30 @@ h2.section-title {
   color: var(--pm-black);
 }
 .faq__q .icon {
+  position: relative;
   flex: none;
   width: 30px; height: 30px;
   border-radius: 50%;
   background: var(--pm-sunrise-lightest);
   color: var(--pm-sunrise);
-  display: grid; place-items: center;
-  font-size: 1.3rem;
-  transition: transform 0.25s ease, background 0.2s ease, color 0.2s ease;
+  font-size: 0; /* hide the literal "+"; the sign is drawn with the bars below */
+  transition: background 0.2s ease, color 0.2s ease;
 }
-.faq__item[open] .faq__q .icon { transform: rotate(45deg); background: var(--pm-sunrise); color: #fff; }
+/* Two centered bars = "+"; hiding the vertical one on open = "−" (never an "×") */
+.faq__q .icon::before,
+.faq__q .icon::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 12px; height: 2.5px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.2s ease;
+}
+.faq__q .icon::after { transform: translate(-50%, -50%) rotate(90deg); }
+.faq__item[open] .faq__q .icon { background: var(--pm-sunrise); color: #fff; }
+.faq__item[open] .faq__q .icon::after { opacity: 0; }
 .faq__a { padding: 0 4px 26px; color: var(--pm-gray-600); max-width: 70ch; }
 .faq__q::-webkit-details-marker { display: none; }
 
@@ -784,7 +809,7 @@ h2.section-title {
 }
 .footer__top {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: 1.6fr 1fr 1fr;
   gap: 40px;
   padding-bottom: 44px;
   border-bottom: 1px solid var(--pm-gray-100);
