@@ -10,7 +10,7 @@
    IP and the (rarely-changing) result is cached briefly. Falls back to 503
    (→ browser uses illustrative demo list) when creds are absent.
    ========================================================================== */
-import { hasCredentials, readyremitGet, json } from "./_readyremit.mjs";
+import { hasCredentials, hasSender, readyremitGet, json } from "./_readyremit.mjs";
 import { clientIp, rateLimit, TTLCache } from "./_util.mjs";
 
 const SRC_CURRENCY = process.env.READYREMIT_SRC_CURRENCY || "USD";
@@ -23,7 +23,10 @@ export default async (req) => {
   const rl = rateLimit(`corridors:${clientIp(req)}`, RL_LIMIT, RL_WINDOW);
   if (!rl.ok) return json(429, { error: "rate_limited" }, { "retry-after": String(rl.retryAfter) });
 
-  if (!hasCredentials()) return json(503, { error: "not_configured" });
+  // Live mode is all-or-nothing: without a Sender ID we can't quote, so don't
+  // offer a live dropdown we can't price — let the browser use the full
+  // illustrative fallback instead.
+  if (!hasCredentials() || !hasSender()) return json(503, { error: "not_configured" });
 
   const cacheKey = `corridors:${SRC_CURRENCY}`;
   const cached = cache.get(cacheKey);
@@ -40,7 +43,12 @@ export default async (req) => {
 
     for (const c of rows) {
       const country  = c.destinationCountry || {};
-      const currency = c.destinationCurrency || {};
+      // The live API returns sourceCurrency / destinationCurrency as ARRAYS
+      // (the doc samples showed objects). Take the first entry; stay defensive
+      // in case a future response reverts to an object.
+      const currency = Array.isArray(c.destinationCurrency)
+        ? (c.destinationCurrency[0] || {})
+        : (c.destinationCurrency || {});
       const iso3 = country.iso3Code;
       if (!iso3) continue;
 
@@ -49,6 +57,7 @@ export default async (req) => {
         entry = {
           name:          country.name || iso3,
           countryIso3:   iso3,
+          countryIso2:   country.iso2Code || null,
           currencyIso3:  currency.iso3Code || null,
           currencySymbol:currency.symbol || null,
           decimalPlaces: currency.decimalPlaces ?? 2,

@@ -46,6 +46,16 @@
   };
   var flagFor = function (iso3) { return FLAGS[iso3] || "🌐"; };
 
+  // Flag emoji from an ISO-3166 alpha-2 code (regional-indicator letters) —
+  // the live corridors carry iso2, which covers every country the ISO3 map may
+  // miss. Falls back to the ISO3 map, then a globe.
+  function flagFromIso2(iso2) {
+    if (!iso2 || iso2.length !== 2 || !/^[A-Za-z]{2}$/.test(iso2)) return null;
+    var cc = iso2.toUpperCase();
+    return String.fromCodePoint(0x1F1E6 + cc.charCodeAt(0) - 65, 0x1F1E6 + cc.charCodeAt(1) - 65);
+  }
+  function flagF1(d) { return flagFromIso2(d && d.iso2) || flagFor(d && d.iso3); }
+
   // UI delivery method  <->  quote-API transferMethod enum.
   var METHOD_LABELS = {
     BANK_ACCOUNT:  "Bank deposit",
@@ -176,14 +186,17 @@
     els.receive.setAttribute("aria-busy", on ? "true" : "false");
   }
 
-  // Neutral state for a transient live-quote failure. Live corridors carry no
+  // Neutral state when a live quote can't be shown. Live corridors carry no
   // illustrative rate, so we must NOT show a fabricated number under the live
-  // label — show a dash and a gentle note instead.
-  function renderUnavailable() {
+  // label — show a dash and a message. `code` distinguishes a user-fixable
+  // amount-range issue from a transient outage.
+  function renderUnavailable(code) {
     var d = current();
     els.receive.textContent = "—";
     els.receiveCcy.textContent = d ? d.ccy : SRC_CCY;
-    els.rateLine.textContent = "Rate temporarily unavailable";
+    els.rateLine.textContent = /limit/i.test(code || "")
+      ? "Amount is outside the allowed range for this destination"
+      : "Rate temporarily unavailable";
     els.etaLine.textContent = slaText(null, method);
     renderFee(null, { iso3: d ? d.iso3 : null, method: method, amount: 0 });
   }
@@ -240,7 +253,7 @@
     destinations.forEach(function (d, i) {
       var opt = document.createElement("option");
       opt.value = String(i);
-      opt.textContent = flagFor(d.iso3) + "  " + d.name + " (" + d.ccy + ")";
+      opt.textContent = flagF1(d) + "  " + d.name + " (" + d.ccy + ")";
       els.country.appendChild(opt);
     });
   }
@@ -310,6 +323,7 @@
         .then(function (q) {
           if (seq !== reqSeq) return;          // a newer request superseded this
           setLoading(false);
+          if (!q || q.unavailable) { renderUnavailable(q && q.code); return; }
           render(q.rate, q.receiveAmount, q.receiveDecimals, q.receiveCurrency, slaText(q.deliverySLA, method));
           renderFee(typeof q.fee === "number" ? q.fee : null, { iso3: d.iso3, method: method, amount: send });
         })
@@ -357,18 +371,32 @@
     requestQuote(true);
   }
 
+  // Float popular US remittance corridors to the top so the live dropdown
+  // doesn't default to an alphabetical-first exotic corridor. The rest keep the
+  // server's alphabetical order.
+  var PREFERRED_ISO3 = ["MEX", "IND", "PHL", "COL", "NGA", "GTM", "HND", "DOM", "SLV", "ECU", "KEN", "VNM", "BRA"];
+  function orderDestinations(list) {
+    var pref = [];
+    PREFERRED_ISO3.forEach(function (iso) {
+      var i = list.findIndex(function (d) { return d.iso3 === iso; });
+      if (i !== -1) pref.push(list.splice(i, 1)[0]);
+    });
+    return pref.concat(list);
+  }
+
   function startLive(corridors) {
     live = true;
     setFootnote(true);
-    destinations = corridors.map(function (c) {
+    destinations = orderDestinations(corridors.map(function (c) {
       return {
         name:   c.name,
         iso3:   c.countryIso3,
+        iso2:   c.countryIso2,
         ccy:    c.currencyIso3,
         dp:     typeof c.decimalPlaces === "number" ? c.decimalPlaces : 2,
         methods:(c.methods && c.methods.length) ? c.methods : FALLBACK_METHODS.slice()
       };
-    });
+    }));
     populateCountries();
     renderMethods();
     requestQuote(true);

@@ -11,11 +11,23 @@ const API_BASE   = process.env.READYREMIT_API_BASE   || "https://sandbox-api.rea
 const AUDIENCE    = process.env.READYREMIT_AUDIENCE    || "https://sandbox-api.readyremit.com";
 const CLIENT_ID   = process.env.READYREMIT_CLIENT_ID;
 const CLIENT_SECRET = process.env.READYREMIT_CLIENT_SECRET;
+// A Sender ID is REQUIRED to quote in this environment: GET /quote returns
+// SenderUndetermined for a plain client-level token. Setting a Sender ID here
+// mints a SENDER-SCOPED token (sender_id in the token request), which carries
+// the sender through to /quote. For a B2C marketing widget this is the single
+// business-as-sender ID provisioned by the Integrations Team. When unset, the
+// token is client-level — fine for /corridors, but /quote will 400.
+const SENDER_ID = process.env.READYREMIT_SENDER_ID;
 
 /** True only when server-side credentials are configured. When false, the
  *  functions return 503 and the browser silently falls back to demo rates. */
 export function hasCredentials() {
   return Boolean(CLIENT_ID && CLIENT_SECRET);
+}
+
+/** True when a Sender ID is configured (required for live quotes). */
+export function hasSender() {
+  return Boolean(SENDER_ID);
 }
 
 // Token is cached in module scope for the lifetime of a warm function
@@ -33,7 +45,9 @@ async function getToken() {
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
       audience: AUDIENCE,
-      grant_type: "client_credentials"
+      grant_type: "client_credentials",
+      // Sender-scoped token when a Sender ID is configured (needed for /quote).
+      ...(SENDER_ID ? { sender_id: SENDER_ID } : {})
     })
   });
 

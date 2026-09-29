@@ -12,7 +12,7 @@
    briefly cached per exact corridor+amount to blunt rate-scraping. The cache
    TTL is short because quotes are time-sensitive.
    ========================================================================== */
-import { hasCredentials, readyremitGet, json } from "./_readyremit.mjs";
+import { hasCredentials, hasSender, readyremitGet, json } from "./_readyremit.mjs";
 import { clientIp, rateLimit, TTLCache } from "./_util.mjs";
 
 const SRC_CURRENCY = process.env.READYREMIT_SRC_CURRENCY || "USD";
@@ -31,7 +31,9 @@ export default async (req) => {
   const rl = rateLimit(`quote:${clientIp(req)}`, RL_LIMIT, RL_WINDOW);
   if (!rl.ok) return json(429, { error: "rate_limited" }, { "retry-after": String(rl.retryAfter) });
 
-  if (!hasCredentials()) return json(503, { error: "not_configured" });
+  // Quotes require a sender-scoped token (see _readyremit.mjs). No Sender ID →
+  // treat as not configured so the browser uses the illustrative fallback.
+  if (!hasCredentials() || !hasSender()) return json(503, { error: "not_configured" });
 
   const p = new URL(req.url).searchParams;
   const params = {
@@ -57,7 +59,14 @@ export default async (req) => {
 
   try {
     const { ok, status, body } = await readyremitGet("/quote", params);
-    if (!ok) return json(status, { error: "upstream", status, body });
+    if (!ok) {
+      // Business errors (bad amount for the corridor, RSP hiccup, etc.) come
+      // back as 4xx with a code. Surface them as a 200 "unavailable" payload so
+      // the browser can show a specific, non-alarming message (e.g. amount out
+      // of range) rather than treating it as a hard outage.
+      const code = Array.isArray(body) ? body[0]?.code : body?.code;
+      return json(200, { unavailable: true, code: code || "ErrorGettingQuote", status });
+    }
 
     const feeAdj = Array.isArray(body?.adjustments)
       ? body.adjustments.find((a) => /fee/i.test(a.type || a.name || ""))
