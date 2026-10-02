@@ -58,8 +58,8 @@
 
   // UI delivery method  <->  quote-API transferMethod enum.
   var METHOD_LABELS = {
-    BANK_ACCOUNT:  "Bank deposit",
-    PUSH_TO_CARD:  "Debit card",
+    BANK_ACCOUNT:  "Bank account",
+    PUSH_TO_CARD:  "Debit card deposit",
     CASH_PICKUP:   "Cash pickup",
     MOBILE_WALLET: "Mobile wallet"
   };
@@ -148,26 +148,35 @@
   }
   function current() { return destinations[parseInt(els.country.value, 10) || 0]; }
 
-  /* Smooth count-up to the new value */
+  /* Smooth count-up to the new value. Falls back to snapping the final value if
+     requestAnimationFrame never fires (reduced motion, or a hidden/backgrounded
+     tab — e.g. an embedded preview browser) so the amount is never stuck on "—". */
   function animateTo(target, dp) {
     var start = lastValue;
     var delta = target - start;
     var duration = 450;
     var t0 = null;
+    var done = false;
     lastValue = target;
 
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      els.receive.textContent = fmt(target, dp);
+    function settle() { if (!done) { done = true; els.receive.textContent = fmt(target, dp); } }
+
+    if (!window.requestAnimationFrame ||
+        (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+      settle();
       return;
     }
     function frame(ts) {
+      if (done) return;
       if (t0 === null) t0 = ts;
       var p = Math.min((ts - t0) / duration, 1);
       var eased = 1 - Math.pow(1 - p, 3);
       els.receive.textContent = fmt(start + delta * eased, dp);
-      if (p < 1) requestAnimationFrame(frame);
+      if (p < 1) requestAnimationFrame(frame); else done = true;
     }
     requestAnimationFrame(frame);
+    // Safety net: guarantee the final value renders even if RAF is throttled/frozen.
+    setTimeout(settle, duration + 80);
   }
 
   function render(rate, receiveAmount, dp, ccy, etaLabel) {
