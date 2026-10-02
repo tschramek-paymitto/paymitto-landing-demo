@@ -436,11 +436,11 @@ h2.section-title {
   outline: none;
 }
 .field__control select { font-size: 1.1rem; cursor: pointer; }
-.field--send .field__control { border-color: var(--pm-sunrise-light); }
+.field--send .field__control { border-color: var(--pm-meridian-light); }
 
 .field--receive .field__control {
-  background: var(--pm-sunrise-lightest);
-  border-color: var(--pm-sunrise-light);
+  background: var(--pm-meridian-lightest);
+  border-color: var(--pm-meridian-light);
 }
 .field--receive .amount {
   font-family: var(--pm-font-display);
@@ -455,8 +455,8 @@ h2.section-title {
 .calc.is-loading .field--receive .amount { opacity: 0.55; }
 .calc.is-loading .field--receive .field__control { animation: calc-pulse 0.9s ease-in-out infinite; }
 @keyframes calc-pulse {
-  0%, 100% { border-color: var(--pm-sunrise-light); }
-  50%      { border-color: var(--pm-sunrise); }
+  0%, 100% { border-color: var(--pm-meridian-light); }
+  50%      { border-color: var(--pm-meridian); }
 }
 @media (prefers-reduced-motion: reduce) {
   .calc.is-loading .field--receive .field__control { animation: none; }
@@ -477,10 +477,19 @@ h2.section-title {
   transition: all 0.15s ease;
 }
 .calc__methods button.active {
-  border-color: var(--pm-sunrise);
-  background: var(--pm-sunrise-lightest);
+  border-color: var(--pm-meridian);
+  background: var(--pm-meridian-lightest);
   color: var(--pm-black);
 }
+
+/* The example widget's primary action uses PayMitto blue (Meridian), not the
+   page's coral CTA: reads as a primary action rather than an error state, and
+   helps clients picture their own (usually blue) brand color. */
+.calc .btn--primary {
+  background: var(--pm-meridian);
+  box-shadow: 0 14px 30px -10px rgba(68, 81, 246, 0.45);
+}
+.calc .btn--primary:hover { background: #3a46e0; }
 
 .calc__lines {
   border-top: 1px dashed var(--pm-gray-100);

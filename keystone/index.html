@@ -108,7 +108,7 @@
             </div>
 
             <div class="field field--send">
-              <label for="send-amount">You send</label>
+              <label for="send-amount">Total you send</label>
               <div class="field__control">
                 <span class="ccy">$</span>
                 <input id="send-amount" type="text" inputmode="decimal" value="500" aria-label="Amount to send in US dollars" />
@@ -124,13 +124,13 @@
             </div>
 
             <div class="calc__methods" role="group" aria-label="Delivery method">
-              <button type="button" data-method="bank">Bank deposit</button>
-              <button type="button" data-method="debit">Debit card</button>
+              <button type="button" data-method="bank">Bank account</button>
+              <button type="button" data-method="debit">Debit card deposit</button>
               <button type="button" data-method="cash" class="active">Cash pickup</button>
             </div>
 
             <div class="field field--receive">
-              <label for="receive-amount">They receive</label>
+              <label for="receive-amount">Total to recipient</label>
               <div class="field__control">
                 <span class="amount" id="receive-amount">—</span>
                 <span class="ccy" id="receive-ccy">MXN</span>
@@ -138,8 +138,8 @@
             </div>
 
             <div class="calc__lines">
-              <div class="calc__line"><span>Exchange rate</span><strong id="rate-line">—</strong></div>
-              <div class="calc__line"><span>Transfer fee</span><span id="fee-line"><span class="was">$2.99</span><span class="free">$0.00</span></span></div>
+              <div class="calc__line"><span>Estimated exchange rate</span><strong id="rate-line">—</strong></div>
+              <div class="calc__line"><span>Estimated transfer fees</span><span id="fee-line"><span class="was">$2.99</span><span class="free">$0.00</span></span></div>
               <div class="calc__line"><span>Estimated delivery</span><strong id="eta-line">Within minutes</strong></div>
             </div>
 

@@ -46,10 +46,20 @@
   };
   var flagFor = function (iso3) { return FLAGS[iso3] || "🌐"; };
 
+  // Flag emoji from an ISO-3166 alpha-2 code (regional-indicator letters) —
+  // the live corridors carry iso2, which covers every country the ISO3 map may
+  // miss. Falls back to the ISO3 map, then a globe.
+  function flagFromIso2(iso2) {
+    if (!iso2 || iso2.length !== 2 || !/^[A-Za-z]{2}$/.test(iso2)) return null;
+    var cc = iso2.toUpperCase();
+    return String.fromCodePoint(0x1F1E6 + cc.charCodeAt(0) - 65, 0x1F1E6 + cc.charCodeAt(1) - 65);
+  }
+  function flagF1(d) { return flagFromIso2(d && d.iso2) || flagFor(d && d.iso3); }
+
   // UI delivery method  <->  quote-API transferMethod enum.
   var METHOD_LABELS = {
-    BANK_ACCOUNT:  "Bank deposit",
-    PUSH_TO_CARD:  "Debit card",
+    BANK_ACCOUNT:  "Bank account",
+    PUSH_TO_CARD:  "Debit card deposit",
     CASH_PICKUP:   "Cash pickup",
     MOBILE_WALLET: "Mobile wallet"
   };
@@ -79,18 +89,16 @@
   }
 
   /* ---------------------------------------------------------------------
-     Promotion overlay.
-     The REAL fee always comes from the quote API. A promo is layered on top:
-     the live fee is shown struck through and the promo price sits beside it.
-     Nothing here fakes the fee — it only decides what the customer pays while
-     the promo runs. A page can override any of this via window.PAYMITTO_PROMO.
+     Fee display config.
+     The fee shown in the widget is the REAL transfer fee from GET /quote.
+     When that fee is $0.00 we render the waived treatment: a struck "standard"
+     reference (display-only — the quote API returns no original fee when a fee
+     is waived) beside a green $0.00. In illustrative fallback mode (no live
+     quote) we show `demoFee`. Overridable via window.PAYMITTO_FEE.
      --------------------------------------------------------------------- */
-  var PROMO = window.PAYMITTO_PROMO || {
-    active:      true,
-    endsOn:      "2026-08-31", // auto-expires after this date (viewer's clock)
-    price:       0,            // what the customer pays during the promo (0 = waived)
-    standardFee: 2.99,         // struck-through fee for the illustrative fallback only
-    applies:     null          // optional fn(ctx {iso3, method, amount}) => boolean
+  var FEE = window.PAYMITTO_FEE || {
+    waivedStrike: 2.99, // "was" price struck through when the live fee is $0.00 (null = no strike)
+    demoFee:      0     // fee shown in illustrative fallback (0 => showcases the waived $0.00 look)
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -140,31 +148,41 @@
   }
   function current() { return destinations[parseInt(els.country.value, 10) || 0]; }
 
-  /* Smooth count-up to the new value */
+  /* Smooth count-up to the new value. Falls back to snapping the final value if
+     requestAnimationFrame never fires (reduced motion, or a hidden/backgrounded
+     tab — e.g. an embedded preview browser) so the amount is never stuck on "—". */
   function animateTo(target, dp) {
     var start = lastValue;
     var delta = target - start;
     var duration = 450;
     var t0 = null;
+    var done = false;
     lastValue = target;
 
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      els.receive.textContent = fmt(target, dp);
+    function settle() { if (!done) { done = true; els.receive.textContent = fmt(target, dp); } }
+
+    if (!window.requestAnimationFrame ||
+        (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+      settle();
       return;
     }
     function frame(ts) {
+      if (done) return;
       if (t0 === null) t0 = ts;
       var p = Math.min((ts - t0) / duration, 1);
       var eased = 1 - Math.pow(1 - p, 3);
       els.receive.textContent = fmt(start + delta * eased, dp);
-      if (p < 1) requestAnimationFrame(frame);
+      if (p < 1) requestAnimationFrame(frame); else done = true;
     }
     requestAnimationFrame(frame);
+    // Safety net: guarantee the final value renders even if RAF is throttled/frozen.
+    setTimeout(settle, duration + 80);
   }
 
   function render(rate, receiveAmount, dp, ccy, etaLabel) {
     els.receiveCcy.textContent = ccy;
-    els.rateLine.textContent = "1 " + SRC_CCY + " = " + fmt(rate, dp === 0 ? 2 : 2) + " " + ccy;
+    // Show more precision for small rates (e.g. 1 USD = 0.7912 GBP), 2dp otherwise.
+    els.rateLine.textContent = "1 " + SRC_CCY + " = " + fmt(rate, rate !== 0 && rate < 10 ? 4 : 2) + " " + ccy;
     els.etaLine.textContent = etaLabel;
     els.receive.classList.add("flash");
     setTimeout(function () { els.receive.classList.remove("flash"); }, 120);
@@ -176,16 +194,19 @@
     els.receive.setAttribute("aria-busy", on ? "true" : "false");
   }
 
-  // Neutral state for a transient live-quote failure. Live corridors carry no
+  // Neutral state when a live quote can't be shown. Live corridors carry no
   // illustrative rate, so we must NOT show a fabricated number under the live
-  // label — show a dash and a gentle note instead.
-  function renderUnavailable() {
+  // label — show a dash and a message. `code` distinguishes a user-fixable
+  // amount-range issue from a transient outage.
+  function renderUnavailable(code) {
     var d = current();
     els.receive.textContent = "—";
     els.receiveCcy.textContent = d ? d.ccy : SRC_CCY;
-    els.rateLine.textContent = "Rate temporarily unavailable";
+    els.rateLine.textContent = /limit/i.test(code || "")
+      ? "Amount is outside the allowed range for this destination"
+      : "Rate temporarily unavailable";
     els.etaLine.textContent = slaText(null, method);
-    renderFee(null, { iso3: d ? d.iso3 : null, method: method, amount: 0 });
+    renderFee(null);
   }
 
   /* ---------------------------------------------------------------------
@@ -193,42 +214,24 @@
      --------------------------------------------------------------------- */
   function money(v) { return "$" + fmt(v, 2); }
 
-  function promoActive() {
-    if (!PROMO || !PROMO.active) return false;
-    if (PROMO.endsOn) {
-      var end = new Date(PROMO.endsOn + "T23:59:59");
-      if (!isNaN(end.getTime()) && Date.now() > end.getTime()) return false;
-    }
-    return true;
-  }
-  function promoApplies(ctx) {
-    if (!promoActive()) return false;
-    if (typeof PROMO.applies === "function") {
-      try { return !!PROMO.applies(ctx); } catch (e) { return false; }
-    }
-    return true;
-  }
-
-  // liveFee: real USD fee from the quote, or null when unknown (fallback path).
-  function renderFee(liveFee, ctx) {
+  // fee: the transfer fee to display (USD, major units) from GET /quote, or null
+  // when unknown. feeOriginal: the pre-discount fee from the promotion endpoint
+  // when a promo applies. A discount (feeOriginal > fee) — including a full
+  // waiver to $0.00 — renders the promo treatment: the struck "was" + the
+  // green discounted price. Any undiscounted fee renders plainly.
+  function renderFee(fee, feeOriginal) {
     if (!els.feeLine) return;
-    var promoPrice = (PROMO && typeof PROMO.price === "number") ? PROMO.price : 0;
-    var standard = (liveFee != null) ? liveFee
-      : (PROMO && typeof PROMO.standardFee === "number" ? PROMO.standardFee : null);
-
-    if (promoApplies(ctx) && standard != null && promoPrice < standard) {
-      // Waived (or discounted): strike the real fee, show the promo price.
+    if (typeof fee !== "number") { els.feeLine.textContent = "—"; return; }
+    // Prefer the real pre-discount fee; fall back to the demo strike only for a
+    // fallback-mode $0 (no live quote, so no feeOriginal).
+    var was = (typeof feeOriginal === "number" && feeOriginal > fee) ? feeOriginal
+      : (fee === 0 && typeof FEE.waivedStrike === "number" && FEE.waivedStrike > 0 ? FEE.waivedStrike : null);
+    if (was != null && was > fee) {
       els.feeLine.innerHTML =
-        '<span class="was">' + money(standard) + '</span>' +
-        '<span class="free">' + money(promoPrice) + '</span>';
-    } else if (promoApplies(ctx) && standard == null) {
-      // Promo on but no fee to strike — just show the promo price.
-      els.feeLine.innerHTML = '<span class="free">' + money(promoPrice) + '</span>';
-    } else if (standard != null) {
-      // No promo: show the live fee plainly.
-      els.feeLine.textContent = money(standard);
+        '<span class="was">' + money(was) + '</span>' +
+        '<span class="free">' + money(fee) + '</span>';
     } else {
-      els.feeLine.textContent = "—";
+      els.feeLine.textContent = money(fee);
     }
   }
 
@@ -240,7 +243,7 @@
     destinations.forEach(function (d, i) {
       var opt = document.createElement("option");
       opt.value = String(i);
-      opt.textContent = flagFor(d.iso3) + "  " + d.name + " (" + d.ccy + ")";
+      opt.textContent = flagF1(d) + "  " + d.name + " (" + d.ccy + ")";
       els.country.appendChild(opt);
     });
   }
@@ -277,7 +280,7 @@
     // Fallback rows carry a rate; live rows converted to fallback won't — guard.
     var rate = typeof d.rate === "number" ? d.rate : 0;
     render(rate, send * rate, d.dp, d.ccy, FALLBACK_ETA[method] || slaText(null, method));
-    renderFee(null, { iso3: d.iso3, method: method, amount: send });
+    renderFee(typeof FEE.demoFee === "number" ? FEE.demoFee : null);
   }
 
   function requestQuote(immediate) {
@@ -288,7 +291,7 @@
       var send = parseAmount(els.amount.value);
       if (!d || send <= 0) {
         render(0, 0, d ? d.dp : 2, d ? d.ccy : SRC_CCY, slaText(null, method));
-        renderFee(null, { iso3: d ? d.iso3 : null, method: method, amount: 0 });
+        renderFee(null);
         return;
       }
 
@@ -310,8 +313,10 @@
         .then(function (q) {
           if (seq !== reqSeq) return;          // a newer request superseded this
           setLoading(false);
+          if (!q || q.unavailable) { renderUnavailable(q && q.code); return; }
           render(q.rate, q.receiveAmount, q.receiveDecimals, q.receiveCurrency, slaText(q.deliverySLA, method));
-          renderFee(typeof q.fee === "number" ? q.fee : null, { iso3: d.iso3, method: method, amount: send });
+          renderFee(typeof q.fee === "number" ? q.fee : null,
+                    typeof q.feeOriginal === "number" ? q.feeOriginal : undefined);
         })
         .catch(function () {
           if (seq !== reqSeq) return;
@@ -357,18 +362,32 @@
     requestQuote(true);
   }
 
+  // Float popular US remittance corridors to the top so the live dropdown
+  // doesn't default to an alphabetical-first exotic corridor. The rest keep the
+  // server's alphabetical order.
+  var PREFERRED_ISO3 = ["MEX", "IND", "PHL", "COL", "NGA", "GTM", "HND", "DOM", "SLV", "ECU", "KEN", "VNM", "BRA"];
+  function orderDestinations(list) {
+    var pref = [];
+    PREFERRED_ISO3.forEach(function (iso) {
+      var i = list.findIndex(function (d) { return d.iso3 === iso; });
+      if (i !== -1) pref.push(list.splice(i, 1)[0]);
+    });
+    return pref.concat(list);
+  }
+
   function startLive(corridors) {
     live = true;
     setFootnote(true);
-    destinations = corridors.map(function (c) {
+    destinations = orderDestinations(corridors.map(function (c) {
       return {
         name:   c.name,
         iso3:   c.countryIso3,
+        iso2:   c.countryIso2,
         ccy:    c.currencyIso3,
         dp:     typeof c.decimalPlaces === "number" ? c.decimalPlaces : 2,
         methods:(c.methods && c.methods.length) ? c.methods : FALLBACK_METHODS.slice()
       };
-    });
+    }));
     populateCountries();
     renderMethods();
     requestQuote(true);

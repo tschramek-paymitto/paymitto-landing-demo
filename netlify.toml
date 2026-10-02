@@ -18,9 +18,24 @@
   publish = "."
   command = ""
 
+[build.environment]
+  NODE_VERSION = "22"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Baseline security response headers for the served pages. The standalone demo
+# pages are not meant to be embedded, so framing is locked to same-origin.
+# (The Azure design replaces this with per-tenant frame-ancestors on /embed.)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    Content-Security-Policy = "frame-ancestors 'self'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
 
 # Friendly /api/* paths in front of the functions.
 [[redirects]]
