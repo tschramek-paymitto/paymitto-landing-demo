@@ -78,6 +78,8 @@ export default async (req) => {
     cache.set(cacheKey, payload, CACHE_TTL);
     return json(200, payload, { "x-cache": "MISS", "cache-control": "public, max-age=300" });
   } catch (e) {
-    return json(502, { error: "exception", message: String(e?.message || e) });
+    // Log detail server-side only; return a generic body to the public caller.
+    console.error("corridors error:", e && e.message ? e.message : e);
+    return json(502, { error: "upstream_unavailable" });
   }
 };

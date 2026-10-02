@@ -27,6 +27,13 @@ const toMajor = (money) => {
   return money.value / Math.pow(10, dp);
 };
 
+// Validate request params before forwarding to the upstream (don't proxy
+// arbitrary input to a token-authenticated API).
+const TRANSFER_METHODS = ["BANK_ACCOUNT", "CASH_PICKUP", "PUSH_TO_CARD", "MOBILE_WALLET", "ACCOUNT_FUNDING"];
+const QUOTE_BY = ["SEND_AMOUNT", "RECEIVE_AMOUNT"];
+const ISO3 = /^[A-Z]{3}$/;
+const AMOUNT = /^[0-9]{1,12}$/; // minor units, positive integer
+
 export default async (req) => {
   const rl = rateLimit(`quote:${clientIp(req)}`, RL_LIMIT, RL_WINDOW);
   if (!rl.ok) return json(429, { error: "rate_limited" }, { "retry-after": String(rl.retryAfter) });
@@ -49,6 +56,11 @@ export default async (req) => {
       !params.transferMethod || !params.amount) {
     return json(400, { error: "missing_params" });
   }
+  if (!ISO3.test(params.srcCurrencyIso3Code) || !ISO3.test(params.dstCountryIso3Code) ||
+      !ISO3.test(params.dstCurrencyIso3Code) || !TRANSFER_METHODS.includes(params.transferMethod) ||
+      !QUOTE_BY.includes(params.quoteBy) || !AMOUNT.test(params.amount)) {
+    return json(400, { error: "invalid_params" });
+  }
 
   const cacheKey = "quote:" + [
     params.srcCurrencyIso3Code, params.dstCountryIso3Code, params.dstCurrencyIso3Code,
@@ -68,9 +80,13 @@ export default async (req) => {
       return json(200, { unavailable: true, code: code || "ErrorGettingQuote", status });
     }
 
+    // The transfer fee lives in adjustments[] as
+    //   { id: "TransferFee", label: "Transfer fee", amount: { value, currency } }
+    // (value in minor units). Match on id/label and read amount.* — NOT a.value.
     const feeAdj = Array.isArray(body?.adjustments)
-      ? body.adjustments.find((a) => /fee/i.test(a.type || a.name || ""))
+      ? body.adjustments.find((a) => a.id === "TransferFee" || /fee/i.test(a.label || a.id || a.type || a.name || ""))
       : null;
+    const feeMoney = feeAdj ? (feeAdj.amount || feeAdj) : null;
 
     const payload = {
       rate:           body.rate,
@@ -81,15 +97,43 @@ export default async (req) => {
       receiveSymbol:  body.receiveAmount?.currency?.symbol || null,
       receiveDecimals:body.receiveAmount?.currency?.decimalPlaces ?? 2,
       totalCost:      toMajor(body.totalCost),
-      fee:            feeAdj ? toMajor(feeAdj) : null,
+      fee:            feeMoney ? toMajor(feeMoney) : null,
       transferMethod: body.transferMethod || params.transferMethod,
       deliverySLA:    body.deliverySLA || null,
       quoteHistoryId: body.quoteHistoryId || null
     };
 
+    // Enrich with the promotion applied to this quote, so the widget can show
+    // the REAL pre-discount ("was") fee struck through rather than a config.
+    //   GET /quote/{quoteHistoryId}/promotion → 200 QuotePromotion | 404 (none)
+    //   original fee = net fee + feeDiscountAmount
+    payload.feeOriginal = payload.fee;
+    payload.promo = null;
+    if (body.quoteHistoryId && typeof payload.fee === "number") {
+      try {
+        const pr = await readyremitGet("/quote/" + encodeURIComponent(body.quoteHistoryId) + "/promotion");
+        if (pr.ok && pr.body && typeof pr.body === "object") {
+          const feeDiscount = toMajor(pr.body.feeDiscountAmount) || 0;
+          if (feeDiscount > 0) {
+            payload.feeOriginal = payload.fee + feeDiscount;
+            payload.promo = {
+              name: (pr.body.promotionDetails && (pr.body.promotionDetails.name || pr.body.promotionDetails.title)) || null,
+              feeDiscount: feeDiscount,
+              rateUndiscounted: typeof pr.body.adjustedFxRateUndiscounted === "number" ? pr.body.adjustedFxRateUndiscounted : null
+            };
+          }
+        }
+        // 404 → no promotion on this quote; feeOriginal stays equal to fee.
+      } catch (e) {
+        console.error("promotion lookup:", e && e.message ? e.message : e); // non-fatal enrichment
+      }
+    }
+
     cache.set(cacheKey, payload, CACHE_TTL);
     return json(200, payload, { "x-cache": "MISS" });
   } catch (e) {
-    return json(502, { error: "exception", message: String(e?.message || e) });
+    // Log detail server-side only; never echo upstream/exception text to the browser.
+    console.error("quote error:", e && e.message ? e.message : e);
+    return json(502, { error: "upstream_unavailable" });
   }
 };
