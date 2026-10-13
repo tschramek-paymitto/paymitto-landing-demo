@@ -606,6 +606,22 @@ h2.section-title {
   background: var(--pm-meridian-lightest);
   color: var(--pm-black);
 }
+/* A delivery method whose quote failed for this destination. Still selectable
+   (selecting retries), so it's dimmed rather than disabled — and marked with a
+   dashed edge so the state isn't carried by colour alone. */
+.calc__methods button.is-unavailable {
+  color: var(--pm-gray-600);
+  border-style: dashed;
+  border-color: var(--pm-gray-300);
+  background: var(--pm-snow);
+}
+.calc__methods button.is-unavailable::after {
+  content: " ·  unavailable";
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--pm-gray-600);
+}
 
 /* The example widget's primary action uses PayMitto blue (Meridian), not the
    page's coral CTA: reads as a primary action rather than an error state, and

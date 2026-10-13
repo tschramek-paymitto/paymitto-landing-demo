@@ -449,11 +449,46 @@
       if (m === method) btn.classList.add("active");
       btn.addEventListener("click", function () {
         method = m;
+        // Selecting a tile marked unavailable is a retry: clear the mark first.
+        setMethodFailed(current(), m, false);
         els.methodsWrap.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
         btn.classList.add("active");
         requestQuote(true);
       });
       els.methodsWrap.appendChild(btn);
+    });
+    updateMethodStates();
+  }
+
+  /* ---------------------------------------------------------------------
+     Per-corridor method availability.
+     A delivery method can fail for a corridor (the upstream can be down for a
+     whole method). We mark that tile "unavailable" rather than leaving the user
+     staring at an error with no idea which method works. Purely transient UI
+     state: selecting the tile retries it and a success clears the mark, so it
+     self-heals the moment the upstream method recovers.
+     --------------------------------------------------------------------- */
+  var methodFailures = {};
+  function failKey(d, m) { return (d ? d.iso3 : "?") + "|" + m; }
+  function isMethodFailed(d, m) { return !!methodFailures[failKey(d, m)]; }
+  function setMethodFailed(d, m, failed) {
+    if (!d) return false;
+    var k = failKey(d, m), had = !!methodFailures[k];
+    if (failed) methodFailures[k] = true; else delete methodFailures[k];
+    return had !== failed;
+  }
+  function updateMethodStates() {
+    if (!els.methodsWrap) return;
+    var d = current();
+    els.methodsWrap.querySelectorAll("button").forEach(function (b) {
+      var m = b.getAttribute("data-method");
+      var label = METHOD_LABELS[m] || m;
+      var failed = isMethodFailed(d, m);
+      b.classList.toggle("is-unavailable", failed);
+      // Keep it enabled (selecting retries), so convey the state in the name
+      // rather than with aria-disabled, which would imply it isn't actionable.
+      if (failed) b.setAttribute("aria-label", label + " — currently unavailable for this destination, select to retry");
+      else b.removeAttribute("aria-label");
     });
   }
 
@@ -499,7 +534,15 @@
         .then(function (q) {
           if (seq !== reqSeq) return;          // a newer request superseded this
           setLoading(false);
-          if (!q || q.unavailable) { renderUnavailable(q && q.code); return; }
+          if (!q || q.unavailable) {
+            var code = q && q.code;
+            // An amount-range error is fixed by changing the amount, not the
+            // method — only mark the tile for genuine method failures.
+            if (!/limit/i.test(code || "") && setMethodFailed(d, method, true)) updateMethodStates();
+            renderUnavailable(code);
+            return;
+          }
+          if (setMethodFailed(d, method, false)) updateMethodStates();
           render(q.rate, q.receiveAmount, q.receiveDecimals, q.receiveCurrency, slaText(q.deliverySLA, method));
           renderFee(typeof q.fee === "number" ? q.fee : null,
                     typeof q.feeOriginal === "number" ? q.feeOriginal : undefined);
