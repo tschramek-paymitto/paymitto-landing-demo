@@ -99,7 +99,11 @@ export default async (req) => {
       totalCost:      toMajor(body.totalCost),
       fee:            feeMoney ? toMajor(feeMoney) : null,
       transferMethod: body.transferMethod || params.transferMethod,
-      deliverySLA:    body.deliverySLA || null,
+      // The API returns deliverySLA as an object ({ id, name }); flatten it to
+      // the enum string so the browser gets a simple, display-ready contract.
+      deliverySLA:    (body.deliverySLA && typeof body.deliverySLA === "object")
+                        ? (body.deliverySLA.id || body.deliverySLA.name || null)
+                        : (body.deliverySLA || null),
       quoteHistoryId: body.quoteHistoryId || null
     };
 

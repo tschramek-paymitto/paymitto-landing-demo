@@ -71,10 +71,13 @@
     CASH_PICKUP:   "Same day, most locations"
   };
 
-  // Humanize a deliverySLA enum from a live quote.
+  // Humanize a deliverySLA from a live quote. The API returns it as an OBJECT
+  // ({ id: "INSTANT", name: "instant" }); older doc samples showed a bare
+  // string — accept either, and never throw on an unexpected shape.
   function slaText(sla, method) {
-    if (!sla) return FALLBACK_ETA[method] || "Varies by destination";
-    switch (sla) {
+    if (sla && typeof sla === "object") sla = sla.id || sla.name || null;
+    if (!sla || typeof sla !== "string") return FALLBACK_ETA[method] || "Varies by destination";
+    switch (sla.toUpperCase()) {
       case "INSTANT":            return "Within minutes";
       case "THIRTY_MINUTES":     return "Within ~30 minutes";
       case "ONE_HOUR":           return "Within the hour";
@@ -323,9 +326,12 @@
           renderFee(typeof q.fee === "number" ? q.fee : null,
                     typeof q.feeOriginal === "number" ? q.feeOriginal : undefined);
         })
-        .catch(function () {
+        .catch(function (err) {
           if (seq !== reqSeq) return;
           setLoading(false);
+          // Surface the real reason in the console: this catch also sees render
+          // errors, and a render bug must not masquerade as an API outage.
+          if (window.console && console.error) console.error("quote failed:", err);
           // Silent fallback: keep the last good live value if we have one;
           // otherwise show a neutral unavailable state (never a fake 0).
           if (lastValue <= 0) renderUnavailable();
