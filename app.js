@@ -282,6 +282,7 @@
     search:  $("country-search"),
     list:    $("country-listbox"),
     empty:   $("country-empty"),
+    status:  $("country-status"),
     flag:    $("country-flag"),
     valueEl: $("country-value")
   };
@@ -332,22 +333,48 @@
              '</li>';
     }
 
-    var pop = popularIndexes().filter(function (i) { return comboMatch(destinations[i], q); });
-    if (pop.length) {
-      html += '<li class="combo__group" role="presentation">Popular destinations</li>';
-      pop.forEach(function (i) { html += rowHtml(i); used[i] = true; });
+    // A real role="group" that OWNS its options, so the section name is
+    // announced. The visible heading is aria-hidden — the group's label
+    // carries it, and a bare <li> header would otherwise be an invalid child
+    // of the listbox.
+    function section(label, idxs) {
+      return '<li role="group" aria-label="' + esc(label) + '">' +
+               '<div class="combo__group" aria-hidden="true">' + esc(label) + '</div>' +
+               '<ul class="combo__group-list" role="none">' + idxs.map(rowHtml).join("") + '</ul>' +
+             '</li>';
     }
+
+    var pop = popularIndexes().filter(function (i) { return comboMatch(destinations[i], q); });
+    pop.forEach(function (i) { used[i] = true; });
     var rest = [];
     destinations.forEach(function (d, i) { if (!used[i] && comboMatch(d, q)) rest.push(i); });
-    if (rest.length) {
-      if (pop.length) html += '<li class="combo__group" role="presentation">All destinations</li>';
-      rest.forEach(function (i) { html += rowHtml(i); });
+
+    if (pop.length) {
+      html += section("Popular destinations", pop);
+      if (rest.length) html += section("All destinations", rest);
+    } else {
+      html += rest.map(rowHtml).join("");
     }
 
     combo.list.innerHTML = html;
-    if (combo.empty) combo.empty.hidden = (pop.length + rest.length) > 0;
+    var count = pop.length + rest.length;
+    if (combo.empty) combo.empty.hidden = count > 0;
     comboRows = [].slice.call(combo.list.querySelectorAll(".combo__opt"));
-    comboSetActive(comboRows.findIndex(function (el) { return Number(el.getAttribute("data-index")) === selected; }));
+
+    // Always keep an option active: the selected one if it survived the filter,
+    // otherwise the first match — else Enter would be a dead key.
+    var want = comboRows.findIndex(function (el) { return Number(el.getAttribute("data-index")) === selected; });
+    comboSetActive(comboRows.length ? (want === -1 ? 0 : want) : -1);
+
+    // aria-expanded describes whether a popup of options is showing.
+    if (combo.search) combo.search.setAttribute("aria-expanded", count > 0 ? "true" : "false");
+    if (combo.status) {
+      combo.status.textContent = count === 0
+        ? "No destinations match that search."
+        : q
+          ? count + (count === 1 ? " destination matches that search." : " destinations match that search.")
+          : count + (count === 1 ? " destination available." : " destinations available.");
+    }
   }
 
   function comboSetActive(i) {
@@ -377,12 +404,16 @@
     combo.panel.hidden = false;
     if (combo.search) combo.search.value = "";
     comboRender("");
-    if (combo.search) combo.search.focus();
+    // On touch, don't auto-focus the field: it summons the on-screen keyboard
+    // over an already-short list. Tapping the field still filters.
+    var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (combo.search && !coarse) combo.search.focus();
   }
   function comboClose(refocus) {
     if (!combo.root) return;
     combo.root.setAttribute("data-open", "false");
     combo.trigger.setAttribute("aria-expanded", "false");
+    if (combo.search) combo.search.setAttribute("aria-expanded", "false");
     combo.panel.hidden = true;
     if (refocus && combo.trigger) combo.trigger.focus();
   }
@@ -401,7 +432,10 @@
       if (comboIsOpen()) comboClose(true); else comboOpen();
     });
     combo.trigger.addEventListener("keydown", function (e) {
-      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); comboOpen(); }
+      // ArrowUp opens too (APG) — otherwise it just scrolls the page.
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault(); comboOpen();
+      }
     });
 
     if (combo.search) {
@@ -429,9 +463,13 @@
       var el = e.target && e.target.closest ? e.target.closest(".combo__opt") : null;
       if (el) comboSetActive(comboRows.indexOf(el));
     });
-    document.addEventListener("click", function (e) {
+    // Dismiss on outside interaction. pointerdown as well as click, because
+    // iOS Safari doesn't synthesize click for taps on non-interactive elements.
+    var dismiss = function (e) {
       if (comboIsOpen() && !combo.root.contains(e.target)) comboClose(false);
-    });
+    };
+    document.addEventListener("click", dismiss);
+    document.addEventListener("pointerdown", dismiss);
   }
 
   function renderMethods() {
@@ -447,12 +485,19 @@
       btn.setAttribute("data-method", m);
       btn.textContent = METHOD_LABELS[m] || m;
       if (m === method) btn.classList.add("active");
+      // Exclusive choice rendered as toggle buttons: aria-pressed is what makes
+      // the selected method perceivable to assistive tech (a CSS class isn't).
+      btn.setAttribute("aria-pressed", m === method ? "true" : "false");
       btn.addEventListener("click", function () {
         method = m;
         // Selecting a tile marked unavailable is a retry: clear the mark first.
         setMethodFailed(current(), m, false);
-        els.methodsWrap.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
+        els.methodsWrap.querySelectorAll("button").forEach(function (b) {
+          b.classList.remove("active");
+          b.setAttribute("aria-pressed", "false");
+        });
         btn.classList.add("active");
+        btn.setAttribute("aria-pressed", "true");
         requestQuote(true);
       });
       els.methodsWrap.appendChild(btn);

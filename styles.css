@@ -476,9 +476,11 @@ h2.section-title {
   font-family: var(--pm-font-body);
 }
 .combo__trigger:focus-visible {
-  outline: none;
+  /* Keep a real outline (it survives forced-colors and clears 3:1); the border
+     tint is a secondary cue, not the indicator. */
+  outline: 3px solid var(--pm-meridian);
+  outline-offset: 2px;
   border-color: var(--pm-meridian);
-  box-shadow: 0 0 0 3px var(--pm-meridian-lightest);
 }
 .combo__flag { font-size: 1.25rem; line-height: 1; flex: none; }
 .combo__value {
@@ -520,7 +522,9 @@ h2.section-title {
 .combo__search input {
   width: 100%;
   font-family: var(--pm-font-body);
-  font-size: 0.95rem;
+  /* 16px exactly: anything smaller makes iOS Safari auto-zoom the host page
+     on focus, which is especially bad inside a client's iframe. */
+  font-size: 16px;
   font-weight: 600;
   color: var(--pm-black);
   background: var(--pm-white);
@@ -533,8 +537,20 @@ h2.section-title {
   border-color: var(--pm-meridian);
   box-shadow: 0 0 0 3px var(--pm-meridian-lightest);
 }
+/* Don't inherit the embedder browser's placeholder default (3.1–4.1:1 in some
+   engines); --pm-gray-600 on white is 6.08:1. */
+.combo__search input::placeholder { color: var(--pm-gray-600); opacity: 1; }
 
-.combo__list { list-style: none; margin: 0; padding: 6px 0; max-height: 264px; overflow-y: auto; }
+/* min() so the list shrinks instead of clipping in a short iframe or at zoom;
+   overscroll-behavior stops a touch flick chaining into the host page. */
+.combo__list {
+  list-style: none; margin: 0; padding: 6px 0;
+  max-height: min(264px, 40vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.combo__panel { overscroll-behavior: contain; }
+.combo__group-list { list-style: none; margin: 0; padding: 0; }
 .combo__group {
   font-size: 0.72rem;
   font-weight: 700;
@@ -542,7 +558,8 @@ h2.section-title {
   padding: 10px 14px 6px;
   letter-spacing: 0.02em;
 }
-.combo__group + .combo__group { border-top: 1px solid var(--pm-gray-100); }
+/* Sections are now li[role=group] siblings, so target the second one's heading. */
+.combo__list > [role="group"] + [role="group"] .combo__group { border-top: 1px solid var(--pm-gray-100); }
 
 .combo__opt {
   display: flex;
@@ -557,10 +574,39 @@ h2.section-title {
 .combo__opt .code { color: var(--pm-gray-600); font-weight: 600; }
 .combo__opt .check { width: 16px; height: 16px; margin-left: auto; color: var(--pm-meridian); flex: none; }
 .combo__opt[aria-selected="true"] .name { color: var(--pm-black); }
-.combo__opt.is-active,
-.combo__opt:hover { background: var(--pm-meridian-lightest); }
+/* Hover is a soft wash; the ACTIVE (keyboard) option needs a cue that clears
+   3:1 and doesn't depend on fill alone — the listbox never takes DOM focus
+   (aria-activedescendant), so this inset bar IS the focus indicator. */
+.combo__opt:hover { background: var(--pm-snow); }
+.combo__opt.is-active {
+  background: var(--pm-meridian-lightest);
+  box-shadow: inset 3px 0 0 var(--pm-meridian);
+}
 
 .combo__empty { padding: 14px; text-align: center; color: var(--pm-gray-600); font-size: 0.9rem; }
+
+/* Screen-reader-only (used for the live status region). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* Windows High Contrast / forced-colors: our state colours are stripped, so
+   re-express selection and the active option with system colours + shape. */
+@media (forced-colors: active) {
+  .combo__opt.is-active {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    box-shadow: inset 3px 0 0 HighlightText;
+  }
+  .combo__opt.is-active .name,
+  .combo__opt.is-active .code { color: HighlightText; }
+  .combo__trigger:focus-visible { outline: 3px solid CanvasText; }
+  .calc__methods button.active { border-width: 2.5px; border-color: Highlight; }
+  .calc__methods button.is-unavailable { border-style: dashed; }
+}
 .field--send .field__control { border-color: var(--pm-meridian-light); }
 
 .field--receive .field__control {
@@ -603,6 +649,7 @@ h2.section-title {
 }
 .calc__methods button.active {
   border-color: var(--pm-meridian);
+  border-width: 2.5px; /* non-colour cue, so selection isn't colour alone */
   background: var(--pm-meridian-lightest);
   color: var(--pm-black);
 }

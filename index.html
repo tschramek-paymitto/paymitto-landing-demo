@@ -127,12 +127,14 @@
                 <div class="combo__panel" id="country-panel" hidden>
                   <div class="combo__search">
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    <input type="text" id="country-search" role="combobox" aria-expanded="true"
+                    <input type="text" id="country-search" role="combobox" aria-expanded="false"
                            aria-controls="country-listbox" aria-autocomplete="list" autocomplete="off"
+                           autocorrect="off" autocapitalize="none"
                            spellcheck="false" placeholder="Type a country or currency" aria-label="Search destinations" />
                   </div>
                   <ul class="combo__list" id="country-listbox" role="listbox" aria-label="Destinations"></ul>
-                  <p class="combo__empty" id="country-empty" hidden>No destinations match that search.</p>
+                  <p class="combo__empty" id="country-empty" aria-hidden="true" hidden>No destinations match that search.</p>
+                  <div id="country-status" class="sr-only" role="status" aria-live="polite"></div>
                 </div>
                 <!-- State + no-JS fallback; the combobox above is the accessible UI. -->
                 <select id="country" class="combo__native" tabindex="-1" aria-hidden="true"></select>
@@ -140,9 +142,9 @@
             </div>
 
             <div class="calc__methods" role="group" aria-label="Delivery method">
-              <button type="button" data-method="bank">Bank account</button>
-              <button type="button" data-method="debit">Debit card deposit</button>
-              <button type="button" data-method="cash" class="active">Cash pickup</button>
+              <button type="button" data-method="bank" aria-pressed="false">Bank account</button>
+              <button type="button" data-method="debit" aria-pressed="false">Debit card deposit</button>
+              <button type="button" data-method="cash" class="active" aria-pressed="true">Cash pickup</button>
             </div>
 
             <div class="field field--receive">
