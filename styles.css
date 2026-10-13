@@ -19,6 +19,11 @@
   /* Tertiary */
   --pm-berry: #640635;
 
+  /* Status green — non-interactive badges and waived/free amounts */
+  --pm-green: #157A43;
+  --pm-green-mid: #1F9D55;
+  --pm-green-lightest: #E7F6ED;
+
   /* Neutrals */
   --pm-white: #FEFDFC;
   --pm-snow: #F8F6F3;
@@ -391,8 +396,10 @@ h2.section-title {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--pm-meridian);
-  background: var(--pm-meridian-lightest);
+  /* Green status pill — deliberately NOT the blue interactive color, so it
+     reads as a status label rather than something clickable. */
+  color: var(--pm-green);
+  background: var(--pm-green-lightest);
   padding: 5px 10px;
   border-radius: var(--radius-pill);
 }
@@ -505,8 +512,10 @@ h2.section-title {
   color: var(--pm-gray-600);
 }
 .calc__line strong { color: var(--pm-gray-800); font-weight: 700; }
-.calc__line .free { color: #1f9d55; font-weight: 700; }
+.calc__line .free { color: var(--pm-green-mid); font-weight: 700; }
 .calc__line .was { color: var(--pm-gray-300); text-decoration: line-through; font-weight: 700; margin-right: 6px; }
+/* Currency label after the fee — subordinate to the amount. */
+.calc__line .fee-ccy { color: var(--pm-gray-600); font-weight: 700; }
 .calc__footnote { font-size: 0.74rem; color: var(--pm-gray-300); margin-top: 14px; text-align: center; }
 .calc .btn { margin-top: 18px; }
 

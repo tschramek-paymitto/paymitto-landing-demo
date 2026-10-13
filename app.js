@@ -226,12 +226,17 @@
     // fallback-mode $0 (no live quote, so no feeOriginal).
     var was = (typeof feeOriginal === "number" && feeOriginal > fee) ? feeOriginal
       : (fee === 0 && typeof FEE.waivedStrike === "number" && FEE.waivedStrike > 0 ? FEE.waivedStrike : null);
+    // The fee is charged in the SOURCE currency — label it (e.g. "$0.00 USD"),
+    // matching how the receive amount carries its currency. SRC_CCY comes from
+    // our own API, but guard its shape before it touches innerHTML.
+    var ccy = /^[A-Z]{3}$/.test(SRC_CCY) ? SRC_CCY : "USD";
+    var ccyHtml = '<span class="fee-ccy"> ' + ccy + '</span>';
     if (was != null && was > fee) {
       els.feeLine.innerHTML =
         '<span class="was">' + money(was) + '</span>' +
-        '<span class="free">' + money(fee) + '</span>';
+        '<span class="free">' + money(fee) + '</span>' + ccyHtml;
     } else {
-      els.feeLine.textContent = money(fee);
+      els.feeLine.innerHTML = money(fee) + ccyHtml;
     }
   }
 
