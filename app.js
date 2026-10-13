@@ -99,6 +99,18 @@
      is waived) beside a green $0.00. In illustrative fallback mode (no live
      quote) we show `demoFee`. Overridable via window.PAYMITTO_FEE.
      --------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------
+     Per-client widget config.
+     popularDestinations: ISO3 codes surfaced in a "Popular destinations"
+     group at the top of the destination dropdown. OPTIONAL — omit it or use
+     an empty array to hide the group entirely. Codes the client isn't enabled
+     for are ignored, so this can never offer an unsupported corridor.
+     In the hosted widget this comes from the tenant's /config/{clientId}.json.
+     --------------------------------------------------------------------- */
+  var WIDGET = window.PAYMITTO_WIDGET || {
+    popularDestinations: ["MEX", "IND", "PHL", "GTM", "COL"]
+  };
+
   var FEE = window.PAYMITTO_FEE || {
     waivedStrike: 2.99, // "was" price struck through when the live fee is $0.00 (null = no strike)
     demoFee:      0     // fee shown in illustrative fallback (0 => showcases the waived $0.00 look)
@@ -254,6 +266,172 @@
       opt.textContent = flagF1(d) + "  " + d.name + " (" + d.ccy + ")";
       els.country.appendChild(opt);
     });
+    comboSync();
+  }
+
+  /* ---------------------------------------------------------------------
+     Destination combobox — a searchable dropdown over `destinations`.
+     The native <select> stays the source of truth (so the rest of the widget
+     is unchanged); this is the accessible UI layered on top, and unlike a
+     native popup it renders reliably inside an iframe / embedded browser.
+     --------------------------------------------------------------------- */
+  var combo = {
+    root:    $("country-combo"),
+    trigger: $("country-trigger"),
+    panel:   $("country-panel"),
+    search:  $("country-search"),
+    list:    $("country-listbox"),
+    empty:   $("country-empty"),
+    flag:    $("country-flag"),
+    valueEl: $("country-value")
+  };
+  var comboRows = [];
+  var comboActive = -1;
+  var CHECK_SVG = '<svg class="check" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function comboIsOpen() { return !!combo.root && combo.root.getAttribute("data-open") === "true"; }
+  function comboSelectedIndex() { return parseInt(els.country.value, 10) || 0; }
+
+  // "Popular destinations" for this client: config order, intersected with the
+  // destinations actually available — so it can never offer an unsupported one.
+  function popularIndexes() {
+    var codes = (WIDGET && WIDGET.popularDestinations) || [];
+    var out = [];
+    codes.forEach(function (iso) {
+      var i = destinations.findIndex(function (d) { return d.iso3 === iso; });
+      if (i !== -1 && out.indexOf(i) === -1) out.push(i);
+    });
+    return out;
+  }
+  function comboMatch(d, q) {
+    return !q || (d.name + " " + d.ccy + " " + d.iso3).toLowerCase().indexOf(q) !== -1;
+  }
+
+  function comboRender(query) {
+    if (!combo.list) return;
+    var q = (query || "").trim().toLowerCase();
+    var selected = comboSelectedIndex();
+    var used = {};
+    var html = "";
+
+    function rowHtml(i) {
+      var d = destinations[i];
+      var isSel = i === selected;
+      return '<li class="combo__opt" role="option" id="dest-opt-' + i + '" data-index="' + i + '"' +
+             ' aria-selected="' + (isSel ? "true" : "false") + '">' +
+               '<span class="flag" aria-hidden="true">' + flagF1(d) + '</span>' +
+               '<span class="name">' + esc(d.name) + '</span>' +
+               '<span class="code">' + esc(d.ccy) + '</span>' +
+               (isSel ? CHECK_SVG : "") +
+             '</li>';
+    }
+
+    var pop = popularIndexes().filter(function (i) { return comboMatch(destinations[i], q); });
+    if (pop.length) {
+      html += '<li class="combo__group" role="presentation">Popular destinations</li>';
+      pop.forEach(function (i) { html += rowHtml(i); used[i] = true; });
+    }
+    var rest = [];
+    destinations.forEach(function (d, i) { if (!used[i] && comboMatch(d, q)) rest.push(i); });
+    if (rest.length) {
+      if (pop.length) html += '<li class="combo__group" role="presentation">All destinations</li>';
+      rest.forEach(function (i) { html += rowHtml(i); });
+    }
+
+    combo.list.innerHTML = html;
+    if (combo.empty) combo.empty.hidden = (pop.length + rest.length) > 0;
+    comboRows = [].slice.call(combo.list.querySelectorAll(".combo__opt"));
+    comboSetActive(comboRows.findIndex(function (el) { return Number(el.getAttribute("data-index")) === selected; }));
+  }
+
+  function comboSetActive(i) {
+    comboActive = i;
+    comboRows.forEach(function (el, n) { el.classList.toggle("is-active", n === i); });
+    var el = comboRows[i];
+    if (el && combo.search) {
+      combo.search.setAttribute("aria-activedescendant", el.id);
+      if (el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+    } else if (combo.search) {
+      combo.search.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  function comboSync() {
+    if (!combo.valueEl) return;
+    var d = destinations[comboSelectedIndex()];
+    if (combo.flag) combo.flag.textContent = d ? flagF1(d) : "🌐";
+    combo.valueEl.textContent = d ? (d.name + " (" + d.ccy + ")") : "Select a destination";
+    if (comboIsOpen()) comboRender(combo.search ? combo.search.value : "");
+  }
+
+  function comboOpen() {
+    if (!combo.root) return;
+    combo.root.setAttribute("data-open", "true");
+    combo.trigger.setAttribute("aria-expanded", "true");
+    combo.panel.hidden = false;
+    if (combo.search) combo.search.value = "";
+    comboRender("");
+    if (combo.search) combo.search.focus();
+  }
+  function comboClose(refocus) {
+    if (!combo.root) return;
+    combo.root.setAttribute("data-open", "false");
+    combo.trigger.setAttribute("aria-expanded", "false");
+    combo.panel.hidden = true;
+    if (refocus && combo.trigger) combo.trigger.focus();
+  }
+  function comboChoose(index) {
+    if (!destinations[index]) return;
+    els.country.value = String(index);
+    els.country.dispatchEvent(new Event("change", { bubbles: true }));
+    comboClose(true);
+  }
+
+  if (combo.root && combo.trigger && combo.list) {
+    combo.root.classList.add("combo--ready"); // swap native select -> combobox
+    combo.root.setAttribute("data-open", "false");
+
+    combo.trigger.addEventListener("click", function () {
+      if (comboIsOpen()) comboClose(true); else comboOpen();
+    });
+    combo.trigger.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); comboOpen(); }
+    });
+
+    if (combo.search) {
+      combo.search.addEventListener("input", function () { comboRender(combo.search.value); });
+      combo.search.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown")      { e.preventDefault(); comboSetActive(Math.min(comboActive + 1, comboRows.length - 1)); }
+        else if (e.key === "ArrowUp")   { e.preventDefault(); comboSetActive(Math.max(comboActive - 1, 0)); }
+        else if (e.key === "Home")      { e.preventDefault(); comboSetActive(0); }
+        else if (e.key === "End")       { e.preventDefault(); comboSetActive(comboRows.length - 1); }
+        else if (e.key === "Enter")     {
+          e.preventDefault();
+          var el = comboRows[comboActive];
+          if (el) comboChoose(Number(el.getAttribute("data-index")));
+        }
+        else if (e.key === "Escape")    { e.preventDefault(); comboClose(true); }
+        else if (e.key === "Tab")       { comboClose(false); }
+      });
+    }
+
+    combo.list.addEventListener("click", function (e) {
+      var el = e.target && e.target.closest ? e.target.closest(".combo__opt") : null;
+      if (el) comboChoose(Number(el.getAttribute("data-index")));
+    });
+    combo.list.addEventListener("mousemove", function (e) {
+      var el = e.target && e.target.closest ? e.target.closest(".combo__opt") : null;
+      if (el) comboSetActive(comboRows.indexOf(el));
+    });
+    document.addEventListener("click", function (e) {
+      if (comboIsOpen() && !combo.root.contains(e.target)) comboClose(false);
+    });
   }
 
   function renderMethods() {
@@ -355,6 +533,7 @@
     els.amount.value = String(parseAmount(els.amount.value) || "");
   });
   els.country.addEventListener("change", function () {
+    comboSync();
     renderMethods();
     requestQuote(true);
   });

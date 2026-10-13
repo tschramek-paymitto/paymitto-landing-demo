@@ -443,6 +443,124 @@ h2.section-title {
   outline: none;
 }
 .field__control select { font-size: 1.1rem; cursor: pointer; }
+
+/* ==========================================================================
+   Destination combobox — a searchable dropdown.
+   Custom DOM rather than a native <select> popup so it renders reliably inside
+   an iframe / embedded browser, and so we can group "Popular destinations".
+   Progressive enhancement: the native select is the control until JS adds
+   .combo--ready.
+   ========================================================================== */
+.combo { position: relative; }
+.combo__trigger, .combo__panel { display: none; }
+.combo--ready .combo__trigger { display: flex; }
+.combo--ready .combo__native { display: none; }
+
+.combo__native {
+  width: 100%;
+  font-family: var(--pm-font-body);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--pm-black);
+  background: var(--pm-snow);
+  border: 1.5px solid var(--pm-gray-100);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.combo__trigger {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--pm-font-body);
+}
+.combo__trigger:focus-visible {
+  outline: none;
+  border-color: var(--pm-meridian);
+  box-shadow: 0 0 0 3px var(--pm-meridian-lightest);
+}
+.combo__flag { font-size: 1.25rem; line-height: 1; flex: none; }
+.combo__value {
+  flex: 1;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--pm-black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.combo__chevron { width: 18px; height: 18px; color: var(--pm-gray-600); flex: none; transition: transform 0.15s ease; }
+.combo[data-open="true"] .combo__chevron { transform: rotate(180deg); }
+
+.combo__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: var(--pm-white);
+  border: 1.5px solid var(--pm-gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: 0 18px 40px -12px rgba(18, 15, 13, 0.28);
+  overflow: hidden;
+}
+.combo[data-open="true"] .combo__panel { display: block; }
+
+.combo__search { position: relative; padding: 12px; border-bottom: 1px solid var(--pm-gray-100); }
+.combo__search svg {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px; height: 18px;
+  color: var(--pm-gray-600);
+  pointer-events: none;
+}
+.combo__search input {
+  width: 100%;
+  font-family: var(--pm-font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--pm-black);
+  background: var(--pm-white);
+  border: 1.5px solid var(--pm-gray-100);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px 10px 40px;
+  outline: none;
+}
+.combo__search input:focus {
+  border-color: var(--pm-meridian);
+  box-shadow: 0 0 0 3px var(--pm-meridian-lightest);
+}
+
+.combo__list { list-style: none; margin: 0; padding: 6px 0; max-height: 264px; overflow-y: auto; }
+.combo__group {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--pm-gray-600);
+  padding: 10px 14px 6px;
+  letter-spacing: 0.02em;
+}
+.combo__group + .combo__group { border-top: 1px solid var(--pm-gray-100); }
+
+.combo__opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.combo__opt .flag { font-size: 1.15rem; line-height: 1; flex: none; }
+.combo__opt .name { font-weight: 700; color: var(--pm-gray-800); }
+.combo__opt .code { color: var(--pm-gray-600); font-weight: 600; }
+.combo__opt .check { width: 16px; height: 16px; margin-left: auto; color: var(--pm-meridian); flex: none; }
+.combo__opt[aria-selected="true"] .name { color: var(--pm-black); }
+.combo__opt.is-active,
+.combo__opt:hover { background: var(--pm-meridian-lightest); }
+
+.combo__empty { padding: 14px; text-align: center; color: var(--pm-gray-600); font-size: 0.9rem; }
 .field--send .field__control { border-color: var(--pm-meridian-light); }
 
 .field--receive .field__control {

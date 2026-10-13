@@ -127,6 +127,7 @@ Each customer (FI) configures the widget to match their landing page. Branding i
 | `typography.weight` *(optional)* | `{normal:400, bold:600}` | Enum of standard weights present in the hosted face. |
 | `radius` / `density` *(optional)* | `8px` / `comfortable\|compact` | Numeric clamp / enum. |
 | `logo` | hosted blob id | **https blob on our storage only** — never an arbitrary tenant URL (SSRF/mixed-content). We ingest the customer's logo at onboarding. |
+| `popularDestinations` | `["MEX","IND","PHL"]` | **Optional.** ISO3 codes surfaced in a "Popular destinations" group at the top of the destination dropdown. Omit or use `[]` to hide the group entirely. Validate each as `^[A-Z]{3}$`; codes outside the tenant's `enabledCorridors` are dropped, so it can never offer an unsupported corridor. |
 
 > **No platform attribution.** The widget renders fully under the customer's own brand — there is **no "Powered by PayMitto" (or "Powered by Mitto") lockup** anywhere in it.
 
