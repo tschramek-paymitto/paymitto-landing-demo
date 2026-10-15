@@ -11,11 +11,33 @@ const API_BASE   = process.env.READYREMIT_API_BASE   || "https://sandbox-api.rea
 const AUDIENCE    = process.env.READYREMIT_AUDIENCE    || "https://sandbox-api.readyremit.com";
 const CLIENT_ID   = process.env.READYREMIT_CLIENT_ID;
 const CLIENT_SECRET = process.env.READYREMIT_CLIENT_SECRET;
+// A Sender ID is REQUIRED to quote in this environment: GET /quote returns
+// SenderUndetermined for a plain client-level token. Setting a Sender ID here
+// mints a SENDER-SCOPED token (sender_id in the token request), which carries
+// the sender through to /quote. For a B2C marketing widget this is the single
+// business-as-sender ID provisioned by the Integrations Team. When unset, the
+// token is client-level — fine for /corridors, but /quote will 400.
+const SENDER_ID = process.env.READYREMIT_SENDER_ID;
 
 /** True only when server-side credentials are configured. When false, the
  *  functions return 503 and the browser silently falls back to demo rates. */
 export function hasCredentials() {
   return Boolean(CLIENT_ID && CLIENT_SECRET);
+}
+
+/** True when a Sender ID is configured (required for live quotes). */
+export function hasSender() {
+  return Boolean(SENDER_ID);
+}
+
+// Bound every upstream call so a slow/hung ReadyRemit can't stall the function
+// to the platform limit (and run up billed duration).
+const UPSTREAM_TIMEOUT_MS = 5000;
+async function fetchWithTimeout(url, opts = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT_MS);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(timer); }
 }
 
 // Token is cached in module scope for the lifetime of a warm function
@@ -26,14 +48,16 @@ async function getToken() {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
 
-  const res = await fetch(`${API_BASE}/oauth/token`, {
+  const res = await fetchWithTimeout(`${API_BASE}/oauth/token`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
       audience: AUDIENCE,
-      grant_type: "client_credentials"
+      grant_type: "client_credentials",
+      // Sender-scoped token when a Sender ID is configured (needed for /quote).
+      ...(SENDER_ID ? { sender_id: SENDER_ID } : {})
     })
   });
 
@@ -43,6 +67,9 @@ async function getToken() {
   }
 
   const data = await res.json();
+  // Never cache a malformed success: an empty/absent token would poison the
+  // cache for up to an hour. Only cache a real token.
+  if (!data || !data.access_token) throw new Error("token response had no access_token");
   cachedToken = {
     value: data.access_token,
     expiresAt: now + (data.expires_in ? data.expires_in * 1000 : 3_600_000)
@@ -59,7 +86,7 @@ export async function readyremitGet(path, params) {
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
     }
   }
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: { Authorization: `Bearer ${token}`, accept: "application/json" }
   });
   const text = await res.text();
