@@ -127,6 +127,7 @@ Each customer (FI) configures the widget to match their landing page. Branding i
 | `typography.weight` *(optional)* | `{normal:400, bold:600}` | Enum of standard weights present in the hosted face. |
 | `radius` / `density` *(optional)* | `8px` / `comfortable\|compact` | Numeric clamp / enum. |
 | `logo` | hosted blob id | **https blob on our storage only** — never an arbitrary tenant URL (SSRF/mixed-content). We ingest the customer's logo at onboarding. |
+| `analytics` | `{enabled, token, clientId}` | **Optional, per-client opt-in.** Mixpanel tracking for the widget. **Off unless the tenant both enables it and supplies a token**, and always off under Do-Not-Track / Global Privacy Control. Anonymous per-session id only — nothing persisted on the host page, no cross-site identity, no PII. Events post directly to `api.mixpanel.com/track` (no third-party script). See §5b. |
 | `popularDestinations` | `["MEX","IND","PHL"]` | **Optional.** ISO3 codes surfaced in a "Popular destinations" group at the top of the destination dropdown. Omit or use `[]` to hide the group entirely. Validate each as `^[A-Z]{3}$`; codes outside the tenant's `enabledCorridors` are dropped, so it can never offer an unsupported corridor. |
 
 > **No platform attribution.** The widget renders fully under the customer's own brand — there is **no "Powered by PayMitto" (or "Powered by Mitto") lockup** anywhere in it.
@@ -163,7 +164,7 @@ Ship a **branding schema + validator** (same spirit as the color validator we al
 ## 7. Security posture (review-hardened)
 
 - **Who-can-frame:** dynamic `/embed` emits **per-tenant `frame-ancestors`** (must be an HTTP header, not `<meta>`; never allow-all). *Limit:* stops direct framing, not a rehosting phisher who strips the header — blast radius bounded because the widget only previews rates and the CTA deep-links to the real app. Add off-allowlist load analytics + brand-abuse monitoring.
-- **Widget-document CSP:** `script-src 'self'; style-src 'self' 'nonce-…'; font-src 'self'; img-src 'self' https:` — branding can't execute, and fonts load only from our own origin (self-hosted allowlist/ingested faces), so no third-party font fetch widens the policy. Colors/typography are **validated at write time** (§5a) and applied only as CSS custom properties — never as raw injected CSS.
+- **Widget-document CSP:** `script-src 'self'; style-src 'self' 'nonce-…'; font-src 'self'; img-src 'self' https:; connect-src 'self'` — and, **only for tenants with analytics enabled**, add `https://api.mixpanel.com` to `connect-src`. Note this is a `connect-src` widening only: we deliberately post to Mixpanel's HTTP API instead of loading its JS SDK, so `script-src` stays `'self'` and no third-party script ever runs on a client's page. — branding can't execute, and fonts load only from our own origin (self-hosted allowlist/ingested faces), so no third-party font fetch widens the policy. Colors/typography are **validated at write time** (§5a) and applied only as CSS custom properties — never as raw injected CSS.
 - **CORS:** collapsed away by the single origin; Functions CORS list stays empty.
 - **Secrets:** Key Vault + Managed Identity (Key Vault Secrets User). **Rotation runbook:** app-setting Key Vault refs cache ≤24h → overlap old+new validity + force fleet restart, or read that secret at runtime via `SecretClient`.
 - **postMessage:** resize/ready are non-sensitive → posted `targetOrigin '*'`; the real gate is parent-side `event.origin`+`event.source` + versioned envelope. Parent→widget config messages accepted only from `allowedEmbedDomains`.
@@ -214,3 +215,31 @@ Front Door Standard (low base + per-request; the only CDN) · static host (SWA ~
 14. Source currencies per tenant (USD only, or CAD/GBP/EUR)?
 15. Custom domain (`widget.paymitto.com`?) + initial `allowedEmbedDomains` + CTA deep-links for Riverstone & Keystone.
 16. Localization scope for `lang` — number/currency formatting only, or translated copy?
+
+---
+
+## 5b. Analytics (Mixpanel)
+
+Per-client **opt-in**, anonymous, and implemented without any third-party script.
+
+**Transport.** Events are POSTed directly to `https://api.mixpanel.com/track`. This keeps `script-src 'self'` intact — the alternative (Mixpanel's JS SDK from its CDN) would put third-party code on a client bank's page and widen the script policy, which is an infosec problem for an embed. The cost is losing autocapture (`$browser`, `$referrer`, replay); we set the few properties we actually need instead.
+
+**Consent & identity.** Off unless the tenant config sets `analytics.enabled` **and** supplies a token. Always off when `navigator.doNotTrack` / `globalPrivacyControl` is set. The identifier is a random per-session id that is **never persisted** — no cookie, no `localStorage`, no cross-site identity — so the widget adds no storage-consent burden to the host page. No PII is sent; the only free-text property (`searchTerm`) is sanitised to letters/spaces and capped at 32 chars.
+
+**Taxonomy.** Mirrors the PayMitto SDK conventions so the data joins existing funnels: `Screen - Action` event names, **camelCase** properties (the project also contains legacy PascalCase and snake_case duplicates — do **not** emit those), and `amountToSend` in **cents**.
+
+| Event | Fires when |
+|---|---|
+| `RateWidget - Viewed` | widget boots (first event of the session) |
+| `RateWidget - CountryDropdown Tapped` | destination dropdown opened |
+| `RateWidget - Country Selected` | destination chosen |
+| `RateWidget - Country searched with empty result` | search returns nothing (deduped, sanitised term) |
+| `RateWidget - AmountToSendField Updated` | amount changed by the user (debounced; the default value is not counted) |
+| `RateWidget - Method Selected` | delivery-method tile chosen |
+| `RateWidget - Quote Selected` | a quote renders successfully |
+| `RateWidget - Quote Unavailable` | a quote fails (`reasonCode` carries the upstream code) |
+| `RateWidget - Continue Tapped` | the CTA is clicked — the hand-off to the authenticated app |
+
+Properties: `client_id`, `surface`, `countryId`, `countryName`, `srcCurrencyIso3Code`, `dstCurrencyIso3Code`, `transferMethod`, `amountToSend` (cents), `amountToReceive` (minor units), `rate`, `fee` (cents), `quoteHistoryId`, `reasonCode`.
+
+The deliberate win: `RateWidget - Continue Tapped` → `StartTransfer - Viewed` is a clean cross-surface funnel from the marketing page into the app, which is why the widget sends to the **same project** as the SDK rather than a separate one.

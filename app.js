@@ -108,13 +108,90 @@
      In the hosted widget this comes from the tenant's /config/{clientId}.json.
      --------------------------------------------------------------------- */
   var WIDGET = window.PAYMITTO_WIDGET || {
-    popularDestinations: ["MEX", "IND", "PHL", "GTM", "COL"]
+    popularDestinations: ["MEX", "IND", "PHL", "GTM", "COL"],
+    // Analytics is per-client OPT-IN and off unless a tenant supplies a token.
+    // Never commit a token here — set it from the tenant config / embed host.
+    analytics: { enabled: false, token: "", clientId: null }
   };
 
   var FEE = window.PAYMITTO_FEE || {
     waivedStrike: 2.99, // "was" price struck through when the live fee is $0.00 (null = no strike)
     demoFee:      0     // fee shown in illustrative fallback (0 => showcases the waived $0.00 look)
   };
+
+  /* ---------------------------------------------------------------------
+     Analytics (Mixpanel) — per-client opt-in, anonymous, no third-party JS.
+
+     Events POST straight to api.mixpanel.com/track, so the embedded widget's
+     CSP only needs `connect-src https://api.mixpanel.com` — no script-src
+     widening and no third-party script on a client's landing page.
+
+     Off unless the tenant config both enables it AND supplies a token, and
+     always off under Do-Not-Track / Global Privacy Control. The identifier is
+     a per-session random id that is never persisted, so nothing is stored on
+     the host page and there is no cross-site identity. No PII is ever sent.
+
+     Event and property names mirror the PayMitto SDK taxonomy ("Screen -
+     Action"; camelCase properties; amountToSend in cents) so this joins the
+     existing funnels — notably RateWidget - Continue Tapped -> StartTransfer.
+     --------------------------------------------------------------------- */
+  var ANALYTICS = (WIDGET && WIDGET.analytics) || {};
+  var MP_ENDPOINT = "https://api.mixpanel.com/track";
+
+  function privacySignalOn() {
+    try {
+      return navigator.doNotTrack === "1" || window.doNotTrack === "1" ||
+             navigator.msDoNotTrack === "1" || navigator.globalPrivacyControl === true;
+    } catch (e) { return false; }
+  }
+  var trackingOn = !!(ANALYTICS.enabled && ANALYTICS.token) && !privacySignalOn();
+
+  // Anonymous, per-session only — deliberately not persisted.
+  var sessionId = (function () {
+    try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+    return "s-" + Math.random().toString(36).slice(2) + "-" + Date.now().toString(36);
+  })();
+  var trackSeq = 0;
+
+  function track(event, props) {
+    if (!trackingOn) return;
+    var base = {
+      token: ANALYTICS.token,
+      distinct_id: sessionId,
+      $insert_id: sessionId + "-" + (++trackSeq),
+      time: Date.now(),
+      client_id: ANALYTICS.clientId || null,
+      surface: "rate-widget",
+      srcCurrencyIso3Code: SRC_CCY
+    };
+    var p = props || {};
+    for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k) && p[k] != null) base[k] = p[k];
+    try {
+      fetch(MP_ENDPOINT, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify([{ event: event, properties: base }]),
+        keepalive: true,
+        mode: "cors"
+      }).catch(function () {});
+    } catch (e) { /* analytics must never break the widget */ }
+  }
+
+  // Corridor/amount context attached to most events.
+  function trackCtx(extra) {
+    var d = (typeof current === "function") ? current() : null;
+    var send = els.amount ? parseAmount(els.amount.value) : 0;
+    var o = {
+      countryId: d ? d.iso3 : null,
+      countryName: d ? d.name : null,
+      dstCurrencyIso3Code: d ? d.ccy : null,
+      transferMethod: method,
+      amountToSend: Math.round(send * 100) // cents, matching the SDK
+    };
+    var e = extra || {};
+    for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
+    return o;
+  }
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -288,6 +365,10 @@
   };
   var comboRows = [];
   var comboActive = -1;
+  var lastEmptyQuery = null;   // dedupes the empty-search event
+  // Seeded from the initial field value: the default amount is not a user
+  // edit, so the first auto-quote must not emit an "Updated" event.
+  var lastTrackedAmount = null;
   var CHECK_SVG = '<svg class="check" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
     '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -359,6 +440,14 @@
     combo.list.innerHTML = html;
     var count = pop.length + rest.length;
     if (combo.empty) combo.empty.hidden = count > 0;
+    if (count > 0) { lastEmptyQuery = null; }
+    else if (q.length >= 2 && q !== lastEmptyQuery) {
+      lastEmptyQuery = q;
+      // Sanitised: letters/spaces only, capped — enough to learn which
+      // destinations people want, without capturing arbitrary typed input.
+      track("RateWidget - Country searched with empty result",
+            { searchTerm: q.replace(/[^a-z ]/g, "").slice(0, 32) });
+    }
     comboRows = [].slice.call(combo.list.querySelectorAll(".combo__opt"));
 
     // Always keep an option active: the selected one if it survived the filter,
@@ -401,6 +490,7 @@
     if (!combo.root) return;
     combo.root.setAttribute("data-open", "true");
     combo.trigger.setAttribute("aria-expanded", "true");
+    track("RateWidget - CountryDropdown Tapped", trackCtx());
     combo.panel.hidden = false;
     if (combo.search) combo.search.value = "";
     comboRender("");
@@ -421,6 +511,7 @@
     if (!destinations[index]) return;
     els.country.value = String(index);
     els.country.dispatchEvent(new Event("change", { bubbles: true }));
+    track("RateWidget - Country Selected", trackCtx());
     comboClose(true);
   }
 
@@ -498,6 +589,7 @@
         });
         btn.classList.add("active");
         btn.setAttribute("aria-pressed", "true");
+        track("RateWidget - Method Selected", trackCtx());
         requestQuote(true);
       });
       els.methodsWrap.appendChild(btn);
@@ -562,6 +654,10 @@
       }
 
       var amountMinor = Math.round(send * 100); // USD source, 2 dp
+      if (amountMinor !== lastTrackedAmount) {
+        lastTrackedAmount = amountMinor;
+        track("RateWidget - AmountToSendField Updated", trackCtx());
+      }
       var seq = ++reqSeq;
       setLoading(true);
 
@@ -584,6 +680,7 @@
             // An amount-range error is fixed by changing the amount, not the
             // method — only mark the tile for genuine method failures.
             if (!/limit/i.test(code || "") && setMethodFailed(d, method, true)) updateMethodStates();
+            track("RateWidget - Quote Unavailable", trackCtx({ reasonCode: code || "unknown" }));
             renderUnavailable(code);
             return;
           }
@@ -591,6 +688,13 @@
           render(q.rate, q.receiveAmount, q.receiveDecimals, q.receiveCurrency, slaText(q.deliverySLA, method));
           renderFee(typeof q.fee === "number" ? q.fee : null,
                     typeof q.feeOriginal === "number" ? q.feeOriginal : undefined);
+          track("RateWidget - Quote Selected", trackCtx({
+            amountToReceive: (typeof q.receiveAmount === "number")
+              ? Math.round(q.receiveAmount * Math.pow(10, q.receiveDecimals || 0)) : null,
+            rate: q.rate,
+            fee: (typeof q.fee === "number") ? Math.round(q.fee * 100) : null,
+            quoteHistoryId: q.quoteHistoryId || null
+          }));
         })
         .catch(function (err) {
           if (seq !== reqSeq) return;
@@ -620,6 +724,13 @@
   els.amount.addEventListener("focus", function () {
     els.amount.value = String(parseAmount(els.amount.value) || "");
   });
+  var ctaEl = document.querySelector(".calc .btn--primary");
+  if (ctaEl) {
+    ctaEl.addEventListener("click", function () {
+      track("RateWidget - Continue Tapped", trackCtx());
+    });
+  }
+
   els.country.addEventListener("change", function () {
     comboSync();
     renderMethods();
@@ -671,17 +782,24 @@
     requestQuote(true);
   }
 
+  lastTrackedAmount = els.amount ? Math.round(parseAmount(els.amount.value) * 100) : null;
+
   fetch("/api/corridors", { headers: { accept: "application/json" } })
     .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
     .then(function (data) {
       if (data && Array.isArray(data.corridors) && data.corridors.length) {
         if (data.srcCurrency) SRC_CCY = data.srcCurrency;
+        track("RateWidget - Viewed", { mode: "live", destinationCount: data.corridors.length });
         startLive(data.corridors);
       } else {
+        track("RateWidget - Viewed", { mode: "illustrative", destinationCount: FALLBACK.length });
         startFallback();
       }
     })
-    .catch(startFallback);
+    .catch(function () {
+      track("RateWidget - Viewed", { mode: "illustrative", destinationCount: FALLBACK.length });
+      startFallback();
+    });
 
   /* ---------------------------------------------------------------------
      Promo ribbon dismiss
