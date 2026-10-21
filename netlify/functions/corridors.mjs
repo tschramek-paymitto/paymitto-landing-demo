@@ -15,6 +15,12 @@ import { clientIp, rateLimit, TTLCache } from "./_util.mjs";
 
 const SRC_CURRENCY = process.env.READYREMIT_SRC_CURRENCY || "USD";
 
+// Mixpanel is per-client opt-in and the token is NEVER committed — it comes
+// from the environment and is handed to the browser with the corridor list
+// (one fewer request). Absent token => analytics stays off.
+const MP_TOKEN  = process.env.MIXPANEL_TOKEN || "";
+const MP_CLIENT = process.env.MIXPANEL_CLIENT_ID || null;
+
 const cache = new TTLCache();
 const CACHE_TTL = 5 * 60 * 1000; // corridors change rarely
 const RL_LIMIT = 30, RL_WINDOW = 60 * 1000;
@@ -74,7 +80,13 @@ export default async (req) => {
       .filter((e) => e.currencyIso3 && e.methods.length)
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    const payload = { srcCurrency: SRC_CURRENCY, corridors };
+    const payload = {
+      srcCurrency: SRC_CURRENCY,
+      corridors,
+      analytics: MP_TOKEN
+        ? { enabled: true, token: MP_TOKEN, clientId: MP_CLIENT }
+        : { enabled: false }
+    };
     cache.set(cacheKey, payload, CACHE_TTL);
     return json(200, payload, { "x-cache": "MISS", "cache-control": "public, max-age=300" });
   } catch (e) {

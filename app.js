@@ -146,6 +146,15 @@
   }
   var trackingOn = !!(ANALYTICS.enabled && ANALYTICS.token) && !privacySignalOn();
 
+  // The hosted widget gets its analytics config from the server (tenant config)
+  // rather than the page, so no token ever lives in the repo. An explicit
+  // window.PAYMITTO_WIDGET.analytics.token on the host page still wins.
+  function applyAnalyticsConfig(cfg) {
+    if (!cfg || (WIDGET.analytics && WIDGET.analytics.token)) return;
+    ANALYTICS = cfg;
+    trackingOn = !!(ANALYTICS.enabled && ANALYTICS.token) && !privacySignalOn();
+  }
+
   // Anonymous, per-session only — deliberately not persisted.
   var sessionId = (function () {
     try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
@@ -789,6 +798,7 @@
     .then(function (data) {
       if (data && Array.isArray(data.corridors) && data.corridors.length) {
         if (data.srcCurrency) SRC_CCY = data.srcCurrency;
+        applyAnalyticsConfig(data.analytics);
         track("RateWidget - Viewed", { mode: "live", destinationCount: data.corridors.length });
         startLive(data.corridors);
       } else {
