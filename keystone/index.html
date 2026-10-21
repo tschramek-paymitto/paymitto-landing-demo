@@ -108,29 +108,48 @@
             </div>
 
             <div class="field field--send">
-              <label for="send-amount">You send</label>
+              <label for="send-amount">Total you send</label>
               <div class="field__control">
                 <span class="ccy">$</span>
-                <input id="send-amount" type="text" inputmode="decimal" value="500" aria-label="Amount to send in US dollars" />
+                <input id="send-amount" type="text" inputmode="decimal" value="100" aria-label="Amount to send in US dollars" />
                 <span class="ccy">USD</span>
               </div>
             </div>
 
             <div class="field">
-              <label for="country">Destination</label>
-              <div class="field__control">
-                <select id="country" aria-label="Destination country"></select>
+              <label id="dest-label" for="country-trigger">Destination</label>
+              <div class="combo" id="country-combo">
+                <button type="button" id="country-trigger" class="field__control combo__trigger"
+                        aria-haspopup="listbox" aria-expanded="false" aria-labelledby="dest-label country-value">
+                  <span class="combo__flag" id="country-flag" aria-hidden="true">🌐</span>
+                  <span class="combo__value" id="country-value">Select a destination</span>
+                  <svg class="combo__chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="combo__panel" id="country-panel" hidden>
+                  <div class="combo__search">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input type="text" id="country-search" role="combobox" aria-expanded="false"
+                           aria-controls="country-listbox" aria-autocomplete="list" autocomplete="off"
+                           autocorrect="off" autocapitalize="none"
+                           spellcheck="false" placeholder="Type a country or currency" aria-label="Search destinations" />
+                  </div>
+                  <ul class="combo__list" id="country-listbox" role="listbox" aria-label="Destinations"></ul>
+                  <p class="combo__empty" id="country-empty" aria-hidden="true" hidden>No destinations match that search.</p>
+                  <div id="country-status" class="sr-only" role="status" aria-live="polite"></div>
+                </div>
+                <!-- State + no-JS fallback; the combobox above is the accessible UI. -->
+                <select id="country" class="combo__native" tabindex="-1" aria-hidden="true"></select>
               </div>
             </div>
 
             <div class="calc__methods" role="group" aria-label="Delivery method">
-              <button type="button" data-method="bank">Bank deposit</button>
-              <button type="button" data-method="debit">Debit card</button>
-              <button type="button" data-method="cash" class="active">Cash pickup</button>
+              <button type="button" data-method="bank" aria-pressed="false">Bank account</button>
+              <button type="button" data-method="debit" aria-pressed="false">Debit card deposit</button>
+              <button type="button" data-method="cash" class="active" aria-pressed="true">Cash pickup</button>
             </div>
 
             <div class="field field--receive">
-              <label for="receive-amount">They receive</label>
+              <label for="receive-amount">Total to recipient</label>
               <div class="field__control">
                 <span class="amount" id="receive-amount">—</span>
                 <span class="ccy" id="receive-ccy">MXN</span>
@@ -138,8 +157,8 @@
             </div>
 
             <div class="calc__lines">
-              <div class="calc__line"><span>Exchange rate</span><strong id="rate-line">—</strong></div>
-              <div class="calc__line"><span>Transfer fee</span><span id="fee-line"><span class="was">$2.99</span><span class="free">$0.00</span></span></div>
+              <div class="calc__line"><span>Estimated exchange rate</span><strong id="rate-line">—</strong></div>
+              <div class="calc__line"><span>Estimated transfer fees</span><span id="fee-line"><span class="was">$2.99</span><span class="free">$0.00</span><span class="fee-ccy"> USD</span></span></div>
               <div class="calc__line"><span>Estimated delivery</span><strong id="eta-line">Within minutes</strong></div>
             </div>
 
