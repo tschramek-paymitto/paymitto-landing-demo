@@ -1141,6 +1141,10 @@ h2.section-title {
 .calcband__points li { display: flex; align-items: center; gap: 11px; font-weight: 700; color: var(--pm-gray-800); }
 .calcband__points svg { width: 20px; height: 20px; color: var(--pm-sunrise); flex: none; }
 .calcband .calc { max-width: 460px; width: 100%; justify-self: end; }
+/* The landing pages embed the widget rather than duplicating its markup;
+   the iframe takes the same grid slot the inline card used to. */
+.calcband__embed { max-width: 480px; width: 100%; justify-self: end; }
+.calcband__embed iframe { display: block; width: 100%; }
 
 /* --- Moment photo cards (override glass version) --- */
 .moment {
@@ -1227,6 +1231,7 @@ h2.section-title {
 @media (max-width: 940px) {
   .calcband__grid { grid-template-columns: 1fr; gap: 34px; }
   .calcband .calc { max-width: 460px; justify-self: start; margin-inline: auto; }
+  .calcband__embed { max-width: 480px; justify-self: start; margin-inline: auto; }
   .testimonials { grid-template-columns: 1fr; max-width: 600px; margin-inline: auto; }
   .hero--photo { min-height: 560px; }
 }

@@ -108,6 +108,10 @@ can never redirect the host page; the CTA opens in a new tab.
 See **[`/embed-example.html`](embed-example.html)** for a working stand-in of a
 client homepage with the widget embedded both ways.
 
+Both concept pages eat their own dog food: the calculator band on `/` and
+`/keystone/` is this same one-line embed, not a copy of the widget's markup. So
+whatever a client gets is exactly what the demos show.
+
 ## Run locally
 Plain static preview (falls back to illustrative rates — no functions):
 
@@ -129,6 +133,10 @@ npx netlify dev        # serves the site + /api/* on one origin
 index.html              Concept A — Riverstone Credit Union (Mitto)
 styles.css              Shared PayMitto design system + layout
 app.js                  Shared logic: live rate calculator, nav, FAQ, scroll reveal
+embed.html              The widget on its own — what the iframe loads
+embed.js                One-line loader clients drop on their page
+embed-theme.js          Allowlisted ?theme= loader for the embed
+embed-example.html      Stand-in client homepage showing both embed methods
 keystone/
   index.html            Concept B — Keystone Bank (GlobalSend)
   keystone-theme.css    Concept B theme layer (premium / Meridian / squared)
