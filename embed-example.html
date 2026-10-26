@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Embed example — a client's homepage</title>
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; margin: 0; background: #f4f6fa; color: #1b2330; }
+  .page { max-width: 1040px; margin: 0 auto; padding: 32px 20px 72px; }
+  .bar { background: #0b2a4a; color: #fff; padding: 14px 20px; font-weight: 700; }
+  .cols { display: grid; grid-template-columns: 1fr 480px; gap: 40px; align-items: start; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 12px; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: 10px; overflow-x: auto; font-size: 13px; }
+  .note { background: #fff; border: 1px solid #dbe2ec; border-radius: 10px; padding: 16px; margin-top: 28px; }
+  code { font-family: ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+  <div class="bar">Anytown Credit Union &nbsp;·&nbsp; <span style="opacity:.7;font-weight:400">example host page</span></div>
+  <div class="page">
+    <div class="cols">
+      <div>
+        <h1>Send money home, straight from your account.</h1>
+        <p>This page is a stand-in for a client's homepage. Everything below the heading is theirs;
+           the rate calculator on the right is the embedded widget, added with the single line shown here.</p>
+
+        <h3>Option A — one line</h3>
+<pre>&lt;script src="/embed.js" data-client="keystone" data-amount="100" async&gt;&lt;/script&gt;</pre>
+
+        <h3>Option B — plain iframe (for strict CSP)</h3>
+<pre>&lt;iframe src="/embed.html?client=keystone&amp;amount=100"
+        title="Global Transfers rate calculator"
+        style="border:0;width:100%;max-width:480px;min-height:480px"
+        loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"&gt;&lt;/iframe&gt;</pre>
+
+        <div class="note">
+          <strong>Params</strong> (all optional except <code>client</code>):
+          <code>client</code>, <code>amount</code>, <code>corridor</code> (ISO3, e.g. <code>MEX</code>),
+          <code>src</code>, <code>theme</code>, <code>lang</code>.
+          With Option A you also get <code>data-max-width</code> / <code>data-min-height</code>.
+          The iframe resizes itself as the widget grows.
+        </div>
+      </div>
+
+      <div>
+        <!-- The actual embed, exactly as a client would add it -->
+        <script src="/embed.js" data-client="keystone" data-amount="100" data-corridor="MEX" async></script>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

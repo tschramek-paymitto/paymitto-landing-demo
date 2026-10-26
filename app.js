@@ -135,6 +135,26 @@
      Action"; camelCase properties; amountToSend in cents) so this joins the
      existing funnels — notably RateWidget - Continue Tapped -> StartTransfer.
      --------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------
+     Embed parameters, read from the iframe URL. Everything here is PUBLIC
+     display config (client, theme, corridor, amount, src, lang) — never a
+     secret. Each value is sanitised before use.
+     --------------------------------------------------------------------- */
+  var EMBED = (function () {
+    var p = {};
+    try {
+      var q = new URLSearchParams(window.location.search);
+      var clean = function (v, n) { return (v || "").replace(/[^A-Za-z0-9-]/g, "").slice(0, n); };
+      p.client   = clean(q.get("client"), 40) || null;
+      p.corridor = clean(q.get("corridor"), 3).toUpperCase() || null;
+      p.src      = clean(q.get("src"), 3).toUpperCase() || null;
+      p.amount   = q.get("amount");
+      p.theme    = clean(q.get("theme"), 10).toLowerCase() || null;
+      p.lang     = clean(q.get("lang"), 10) || null;
+    } catch (e) {}
+    return p;
+  })();
+
   var ANALYTICS = (WIDGET && WIDGET.analytics) || {};
   var MP_ENDPOINT = "https://api.mixpanel.com/track";
 
@@ -169,7 +189,7 @@
       distinct_id: sessionId,
       $insert_id: sessionId + "-" + (++trackSeq),
       time: Date.now(),
-      client_id: ANALYTICS.clientId || null,
+      client_id: EMBED.client || ANALYTICS.clientId || null,
       surface: "rate-widget",
       srcCurrencyIso3Code: SRC_CCY
     };
@@ -344,6 +364,14 @@
   /* ---------------------------------------------------------------------
      Populate the destination dropdown and delivery-method buttons
      --------------------------------------------------------------------- */
+  // Honour ?corridor=ISO3 once the destination list exists (silently ignored
+  // if the client isn't enabled for it — never offer an unsupported corridor).
+  function applyEmbedCorridor() {
+    if (!EMBED.corridor || !destinations.length) return;
+    var i = destinations.findIndex(function (d) { return d.iso3 === EMBED.corridor; });
+    if (i > 0) { els.country.value = String(i); comboSync(); }
+  }
+
   function populateCountries() {
     els.country.innerHTML = "";
     destinations.forEach(function (d, i) {
@@ -756,6 +784,7 @@
       return { name: d.name, iso3: d.iso3, ccy: d.ccy, dp: d.dp, rate: d.rate, methods: FALLBACK_METHODS.slice() };
     });
     populateCountries();
+    applyEmbedCorridor();
     renderMethods();
     requestQuote(true);
   }
@@ -787,10 +816,15 @@
       };
     }));
     populateCountries();
+    applyEmbedCorridor();
     renderMethods();
     requestQuote(true);
   }
 
+  if (EMBED.amount && els.amount) {
+    var seeded = parseAmount(EMBED.amount);
+    if (seeded > 0) els.amount.value = fmt(seeded, 0);
+  }
   lastTrackedAmount = els.amount ? Math.round(parseAmount(els.amount.value) * 100) : null;
 
   fetch("/api/corridors", { headers: { accept: "application/json" } })
@@ -852,4 +886,27 @@
   } else {
     reveals.forEach(function (el) { el.classList.add("in"); });
   }
+})();
+
+/* ==========================================================================
+   Embed height handshake.
+   Runs only when the widget is framed. ready/resize carry no sensitive data,
+   and a cross-origin child cannot reliably learn its parent's origin, so they
+   are posted with "*" — the real gate is the PARENT verifying event.origin
+   AND event.source before acting (see embed.js).
+   ========================================================================== */
+(function () {
+  if (window.parent === window) return;          // not embedded
+  var last = 0;
+  function postHeight() {
+    var h = Math.ceil(document.documentElement.scrollHeight);
+    if (!h || Math.abs(h - last) < 2) return;
+    last = h;
+    try { window.parent.postMessage({ source: "paymitto-widget", v: 1, type: "resize", height: h }, "*"); } catch (e) {}
+  }
+  try { window.parent.postMessage({ source: "paymitto-widget", v: 1, type: "ready" }, "*"); } catch (e) {}
+  try { if (window.ResizeObserver) new ResizeObserver(postHeight).observe(document.documentElement); } catch (e) {}
+  window.addEventListener("load", postHeight);
+  setTimeout(postHeight, 400);
+  setTimeout(postHeight, 1200);
 })();
