@@ -25,17 +25,57 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# Baseline security response headers for the served pages. The standalone demo
-# pages are not meant to be embedded, so framing is locked to same-origin.
-# (The Azure design replaces this with per-tenant frame-ancestors on /embed.)
+# Baseline security response headers for everything served.
+#
+# The framing lock is deliberately NOT in this /* block. Browsers INTERSECT
+# multiple Content-Security-Policy headers, so a frame-ancestors directive set
+# here could never be relaxed by a more specific rule — it would silently block
+# /embed.html from being framed by a client site, which is the whole point of
+# the embed. Framing is locked per-path below instead.
 [[headers]]
   for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+# The standalone demo pages are not meant to be embedded, so lock them to
+# same-origin framing. The baseline headers are repeated rather than relied on
+# by inheritance, so each rule is correct however overlapping matches merge.
+[[headers]]
+  for = "/"
   [headers.values]
     X-Frame-Options = "SAMEORIGIN"
     Content-Security-Policy = "frame-ancestors 'self'"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    Content-Security-Policy = "frame-ancestors 'self'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+[[headers]]
+  for = "/keystone/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    Content-Security-Policy = "frame-ancestors 'self'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+# /embed.html IS the widget, and a client embeds it from their own domain, so
+# it must carry neither X-Frame-Options nor a frame-ancestors directive. (X-F-O
+# is the stricter of the two: older browsers honour it over frame-ancestors, so
+# it has to be absent here, not merely relaxed.) Any site may frame it, which is
+# acceptable for a public demo. The Azure design replaces this with a per-tenant
+# frame-ancestors header emitted by the /embed Function from the tenant's
+# allowedEmbedDomains — see docs/architecture-azure-embed-widget.md section 5.
 
 # Friendly /api/* paths in front of the functions.
 [[redirects]]
