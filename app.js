@@ -107,7 +107,6 @@
   };
 
   var FEE = window.PAYMITTO_FEE || {
-    waivedStrike: 2.99, // "was" price struck through when the live fee is $0.00 (null = no strike)
     demoFee:      0     // fee shown in illustrative fallback (0 => showcases the waived $0.00 look)
   };
 
@@ -366,10 +365,13 @@
   function renderFee(fee, feeOriginal) {
     if (!els.feeLine) return;
     if (typeof fee !== "number") { els.feeLine.textContent = "—"; return; }
-    // Prefer the real pre-discount fee; fall back to the demo strike only for a
-    // fallback-mode $0 (no live quote, so no feeOriginal).
-    var was = (typeof feeOriginal === "number" && feeOriginal > fee) ? feeOriginal
-      : (fee === 0 && typeof FEE.waivedStrike === "number" && FEE.waivedStrike > 0 ? FEE.waivedStrike : null);
+    // The struck-through "was" price may ONLY come from a real pre-discount fee
+    // returned by the promotion endpoint. There used to be a hardcoded 2.99
+    // fallback here, guarded on `fee === 0` with no mode check — so a LIVE $0
+    // quote with no promotion record rendered a savings claim against a price
+    // nobody was ever charged. That is fictitious reference pricing, on a
+    // regulated institution's public page. No real feeOriginal, no strike.
+    var was = (typeof feeOriginal === "number" && feeOriginal > fee) ? feeOriginal : null;
     // The fee is charged in the SOURCE currency — label it (e.g. "$0.00 USD"),
     // matching how the receive amount carries its currency. SRC_CCY comes from
     // our own API, but guard its shape before it touches innerHTML.
