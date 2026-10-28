@@ -87,3 +87,8 @@
   from = "/api/corridors"
   to = "/.netlify/functions/corridors"
   status = 200
+
+[[redirects]]
+  from = "/api/track"
+  to = "/.netlify/functions/track"
+  status = 200

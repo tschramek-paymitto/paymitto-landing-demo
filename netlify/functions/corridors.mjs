@@ -15,9 +15,11 @@ import { clientIp, rateLimit, TTLCache } from "./_util.mjs";
 
 const SRC_CURRENCY = process.env.READYREMIT_SRC_CURRENCY || "USD";
 
-// Mixpanel is per-client opt-in and the token is NEVER committed — it comes
-// from the environment and is handed to the browser with the corridor list
-// (one fewer request). Absent token => analytics stays off.
+// Mixpanel is per-client opt-in. The TOKEN IS NEVER SENT TO THE BROWSER: this
+// response is public, unauthenticated and cached for 5 minutes, so a token in
+// it could be read with a single curl by someone who never loaded the widget.
+// Only the on/off flag and the tenant id travel; events go through
+// POST /api/track, which holds the token server-side.
 const MP_TOKEN  = process.env.MIXPANEL_TOKEN || "";
 const MP_CLIENT = process.env.MIXPANEL_CLIENT_ID || null;
 
@@ -83,9 +85,7 @@ export default async (req) => {
     const payload = {
       srcCurrency: SRC_CURRENCY,
       corridors,
-      analytics: MP_TOKEN
-        ? { enabled: true, token: MP_TOKEN, clientId: MP_CLIENT }
-        : { enabled: false }
+      analytics: { enabled: Boolean(MP_TOKEN), clientId: MP_CLIENT }
     };
     cache.set(cacheKey, payload, CACHE_TTL);
     return json(200, payload, { "x-cache": "MISS", "cache-control": "public, max-age=300" });

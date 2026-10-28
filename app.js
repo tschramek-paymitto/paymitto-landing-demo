@@ -114,9 +114,10 @@
   /* ---------------------------------------------------------------------
      Analytics (Mixpanel) — per-client opt-in, anonymous, no third-party JS.
 
-     Events POST straight to api.mixpanel.com/track, so the embedded widget's
-     CSP only needs `connect-src https://api.mixpanel.com` — no script-src
-     widening and no third-party script on a client's landing page.
+     Events POST to a SAME-ORIGIN relay (/api/track) which holds the project
+     token and forwards to Mixpanel. The embedded widget therefore needs no
+     third-party connect-src at all, no script-src widening, and no
+     third-party script on a client's landing page.
 
      Off unless the tenant config both enables it AND supplies a token, and
      always off under Do-Not-Track / Global Privacy Control. The identifier is
@@ -148,7 +149,10 @@
   })();
 
   var ANALYTICS = (WIDGET && WIDGET.analytics) || {};
-  var MP_ENDPOINT = "https://api.mixpanel.com/track";
+  // Same-origin relay, not api.mixpanel.com. The project token stays on the
+  // server; this also means no cross-origin preflight, which is why direct
+  // tracking failed outright against a local dev server.
+  var TRACK_ENDPOINT = "/api/track";
 
   function privacySignalOn() {
     try {
@@ -156,15 +160,16 @@
              navigator.msDoNotTrack === "1" || navigator.globalPrivacyControl === true;
     } catch (e) { return false; }
   }
-  var trackingOn = !!(ANALYTICS.enabled && ANALYTICS.token) && !privacySignalOn();
+  var trackingOn = !!ANALYTICS.enabled && !privacySignalOn();
 
   // The hosted widget gets its analytics config from the server (tenant config)
-  // rather than the page, so no token ever lives in the repo. An explicit
-  // window.PAYMITTO_WIDGET.analytics.token on the host page still wins.
+  // rather than the page. The config is now just an on/off flag and a tenant
+  // id — there is no token to carry, so there is nothing here worth faking
+  // from a host page.
   function applyAnalyticsConfig(cfg) {
-    if (!cfg || (WIDGET.analytics && WIDGET.analytics.token)) return;
+    if (!cfg) return;
     ANALYTICS = cfg;
-    trackingOn = !!(ANALYTICS.enabled && ANALYTICS.token) && !privacySignalOn();
+    trackingOn = !!ANALYTICS.enabled && !privacySignalOn();
   }
 
   // Anonymous, per-session only — deliberately not persisted.
@@ -176,24 +181,22 @@
 
   function track(event, props) {
     if (!trackingOn) return;
+    // No token here any more. The relay stamps token, time and surface itself
+    // and overwrites whatever arrives under those names, so there is nothing
+    // in this payload worth forging.
     var base = {
-      token: ANALYTICS.token,
-      distinct_id: sessionId,
       $insert_id: sessionId + "-" + (++trackSeq),
-      time: Date.now(),
       client_id: EMBED.client || ANALYTICS.clientId || null,
-      surface: "rate-widget",
       srcCurrencyIso3Code: SRC_CCY
     };
     var p = props || {};
     for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k) && p[k] != null) base[k] = p[k];
     try {
-      fetch(MP_ENDPOINT, {
+      fetch(TRACK_ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify([{ event: event, properties: base }]),
-        keepalive: true,
-        mode: "cors"
+        body: JSON.stringify({ event: event, distinct_id: sessionId, properties: base }),
+        keepalive: true
       }).catch(function () {});
     } catch (e) { /* analytics must never break the widget */ }
   }
