@@ -16,7 +16,10 @@
   <style>
     /* The widget IS the page here: no chrome, transparent ground so it sits on
        whatever background the host page has. */
-    html, body { margin: 0; padding: 0; background: transparent; }
+    /* height:auto overrides styles.css:73 (html,body{height:100%}) for the
+       embed only. With it, body is pinned to the iframe viewport and cannot
+       report a height below whatever the parent last set. */
+    html, body { margin: 0; padding: 0; background: transparent; height: auto; }
     .embed-wrap { max-width: 480px; margin: 0 auto; padding: 10px; }
     .embed-wrap .calc { margin: 0; }
   </style>

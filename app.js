@@ -926,15 +926,24 @@
    ========================================================================== */
 (function () {
   if (window.parent === window) return;          // not embedded
+  // Measure the CONTENT, never document.documentElement. scrollHeight is floored
+  // at the iframe's own viewport height, so once the parent sets the frame to N
+  // the child can never report anything below N again: the handshake ratchets
+  // upward and the widget keeps the tallest height it ever reached, leaving a
+  // band of blank space on the host page. Measured: at a 1200px frame with 695px
+  // of content, documentElement.scrollHeight still read 1200. The same floor is
+  // why the ResizeObserver below watches the content element — observing
+  // documentElement means watching something pinned to the viewport.
+  var content = document.querySelector(".embed-wrap") || document.body;
   var last = 0;
   function postHeight() {
-    var h = Math.ceil(document.documentElement.scrollHeight);
+    var h = Math.ceil(content.getBoundingClientRect().height);
     if (!h || Math.abs(h - last) < 2) return;
     last = h;
     try { window.parent.postMessage({ source: "paymitto-widget", v: 1, type: "resize", height: h }, "*"); } catch (e) {}
   }
   try { window.parent.postMessage({ source: "paymitto-widget", v: 1, type: "ready" }, "*"); } catch (e) {}
-  try { if (window.ResizeObserver) new ResizeObserver(postHeight).observe(document.documentElement); } catch (e) {}
+  try { if (window.ResizeObserver) new ResizeObserver(postHeight).observe(content); } catch (e) {}
   window.addEventListener("load", postHeight);
   setTimeout(postHeight, 400);
   setTimeout(postHeight, 1200);
