@@ -65,10 +65,15 @@
   };
   // Fallback rows have no method data; offer the classic three.
   var FALLBACK_METHODS = ["BANK_ACCOUNT", "PUSH_TO_CARD", "CASH_PICKUP"];
+  // Illustrative mode only (no live quote available). These are hedged on
+  // purpose: a delivery time reads as a commitment, and with no quote behind it
+  // we cannot make one. Values track what the live API actually returns —
+  // sampled 2026-10-28: BANK_ACCOUNT was NEXT_BUSINESS_DAY in 6/6 corridors,
+  // CASH_PICKUP split INSTANT / SAME_BUSINESS_DAY.
   var FALLBACK_ETA = {
-    BANK_ACCOUNT:  "1–2 business days",
-    PUSH_TO_CARD:  "Within minutes",
-    CASH_PICKUP:   "Same day, most locations"
+    BANK_ACCOUNT:  "Typically next business day",
+    PUSH_TO_CARD:  "Typically within minutes",
+    CASH_PICKUP:   "Typically same day"
   };
 
   // Humanize a deliverySLA from a live quote. The API returns it as an OBJECT
@@ -78,7 +83,13 @@
     if (sla && typeof sla === "object") sla = sla.id || sla.name || null;
     if (!sla || typeof sla !== "string") return FALLBACK_ETA[method] || "Varies by destination";
     switch (sla.toUpperCase()) {
+      // Observed live (sampled across 21 corridor/method pairs, 2026-10-28):
+      // NEXT_BUSINESS_DAY, SAME_BUSINESS_DAY, INSTANT. Those three are the ones
+      // that actually occur; the rest below are defensive mappings for values
+      // the API docs describe but that were never returned in practice.
       case "INSTANT":            return "Within minutes";
+      case "SAME_BUSINESS_DAY":  return "Same business day";
+      case "NEXT_BUSINESS_DAY":  return "Next business day";
       case "THIRTY_MINUTES":     return "Within ~30 minutes";
       case "ONE_HOUR":           return "Within the hour";
       case "SAME_DAY":           return "Same day, most locations";
@@ -326,7 +337,11 @@
     els.rateLine.textContent = /limit/i.test(code || "")
       ? "Amount is outside the allowed range for this destination"
       : "Rate temporarily unavailable";
-    els.etaLine.textContent = slaText(null, method);
+    // No quote means no delivery estimate. The fallback table is illustrative
+    // and stating it here would promise a delivery time next to a dash and
+    // "Rate temporarily unavailable" — the same fabrication this function
+    // exists to avoid for the amount.
+    els.etaLine.textContent = "—";
     renderFee(null);
   }
 
