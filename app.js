@@ -226,6 +226,8 @@
     etaLine:    $("eta-line"),
     feeLine:    $("fee-line"),
     footnote:   $("calc-footnote"),
+    note:       $("quote-note"),
+    status:     $("quote-status"),
     methodsWrap:document.querySelector(".calc__methods")
   };
 
@@ -293,6 +295,7 @@
   }
 
   function render(rate, receiveAmount, dp, ccy, etaLabel) {
+    setNote("");
     els.receiveCcy.textContent = ccy;
     // Show more precision for small rates (e.g. 1 USD = 0.7912 GBP), 2dp otherwise.
     els.rateLine.textContent = "1 " + SRC_CCY + " = " + fmt(rate, rate !== 0 && rate < 10 ? 4 : 2) + " " + ccy;
@@ -307,22 +310,44 @@
     els.receive.setAttribute("aria-busy", on ? "true" : "false");
   }
 
+  // The visible note is not itself a live region — toggling `hidden` on one is
+  // unreliable — so the same text also goes to a permanently-present sr-only
+  // role="status". Without it this whole state is silent to a screen reader:
+  // the number simply stops being there.
+  function setNote(text) {
+    if (els.note) {
+      els.note.textContent = text || "";
+      els.note.hidden = !text;
+    }
+    if (els.status) els.status.textContent = text || "";
+  }
+
   // Neutral state when a live quote can't be shown. Live corridors carry no
   // illustrative rate, so we must NOT show a fabricated number under the live
   // label — show a dash and a message. `code` distinguishes a user-fixable
   // amount-range issue from a transient outage.
   function renderUnavailable(code) {
     var d = current();
+    var c = String(code || "");
     els.receive.textContent = "—";
     els.receiveCcy.textContent = d ? d.ccy : SRC_CCY;
-    els.rateLine.textContent = /limit/i.test(code || "")
-      ? "Amount is outside the allowed range for this destination"
-      : "Rate temporarily unavailable";
-    // An out-of-range AMOUNT does not change how the method delivers, so keep
-    // the range in that case. A method that actually failed for this corridor
-    // is not usable at all, so it must not advertise a delivery time.
-    els.etaLine.textContent = /limit/i.test(code || "") ? etaText(method) : "—";
+    // Every value slot dashes together. A confident delivery estimate beside
+    // two dashes reads as a leftover from a quote that does not exist, and it
+    // would be the only number on a card that just declined to quote.
+    els.rateLine.textContent = "—";
+    els.etaLine.textContent = "—";
     renderFee(null);
+    // Upstream distinguishes the two sides (MinLimitOutOfRangeFormat /
+    // MaxLimitOutOfRange) and both already match /limit/i. Naming a direction
+    // is the difference between fixing this in one keystroke and guessing;
+    // no string names a threshold, and the side is the one thing a visitor
+    // works out in a single further attempt anyway.
+    setNote(
+      /^MinLimit/i.test(c) ? "Try a larger amount to see your rate and fees."
+      : /^MaxLimit/i.test(c) ? "Try a smaller amount to see your rate and fees."
+      : /limit/i.test(c) ? "Try a different amount to see your rate and fees."
+      : "We can't show a rate right now. Please try again in a moment."
+    );
   }
 
   /* ---------------------------------------------------------------------
@@ -699,6 +724,8 @@
       }
       var seq = ++reqSeq;
       setLoading(true);
+      setNote("");   // measured: failures return ~0.5s, successes ~2.6s, so a
+                     // stale failure must not outlive the input that caused it
 
       var qs = new URLSearchParams({
         srcCurrencyIso3Code: SRC_CCY,

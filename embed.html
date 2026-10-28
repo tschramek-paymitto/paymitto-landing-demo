@@ -77,6 +77,7 @@
           <span class="ccy sr-only" id="receive-ccy">MXN</span>
         </div>
       </div>
+      <p class="sr-only" id="quote-status" role="status"></p>
 
       <div class="calc__methods" role="group" aria-label="Delivery method">
         <button type="button" data-method="bank" aria-pressed="false">Bank account</button>
@@ -85,6 +86,7 @@
       </div>
 
       <div class="calc__lines">
+        <p class="calc__note" id="quote-note" hidden></p>
         <div class="calc__line"><span>Estimated exchange rate</span><strong id="rate-line">—</strong></div>
         <div class="calc__line"><span>Estimated transfer fees<a class="fn-ref" href="#fn-fees" aria-label="Footnote 1, about transfer fees"><sup>1</sup></a></span><span id="fee-line"><span class="was">$2.99</span><span class="free">$0.00</span><span class="fee-ccy"> USD</span></span></div>
         <div class="calc__line"><span>Estimated delivery<a class="fn-ref" href="#fn-delivery" aria-label="Footnote 2, about delivery timing"><sup>2</sup></a></span><strong id="eta-line">Within minutes</strong></div>
