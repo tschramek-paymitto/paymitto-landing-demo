@@ -65,42 +65,23 @@
   };
   // Fallback rows have no method data; offer the classic three.
   var FALLBACK_METHODS = ["BANK_ACCOUNT", "PUSH_TO_CARD", "CASH_PICKUP"];
-  // Illustrative mode only (no live quote available). These are hedged on
-  // purpose: a delivery time reads as a commitment, and with no quote behind it
-  // we cannot make one. Values track what the live API actually returns —
-  // sampled 2026-10-28: BANK_ACCOUNT was NEXT_BUSINESS_DAY in 6/6 corridors,
-  // CASH_PICKUP split INSTANT / SAME_BUSINESS_DAY.
-  var FALLBACK_ETA = {
-    BANK_ACCOUNT:  "Typically next business day",
-    PUSH_TO_CARD:  "Typically within minutes",
-    CASH_PICKUP:   "Typically same day"
+  // Delivery estimate per method. These mirror what the PayMitto SDK shows on
+  // its quote screen so a customer who sees both surfaces gets one answer.
+  //
+  // Deliberately NOT driven by the quote's deliverySLA. The API does return a
+  // per-quote SLA and it is TIGHTER than these published ranges — sampled
+  // 2026-10-28, bank came back NEXT_BUSINESS_DAY/SAME_BUSINESS_DAY and cash
+  // INSTANT/SAME_BUSINESS_DAY. Rendering that would have the widget promise
+  // faster delivery than the SDK does for the identical transfer. quote.mjs
+  // still returns deliverySLA, so a tighter per-quote estimate stays available
+  // if that is ever the deliberate choice.
+  var METHOD_ETA = {
+    MOBILE_WALLET: "Seconds",
+    CASH_PICKUP:   "Seconds",
+    BANK_ACCOUNT:  "1 to 5 business days",
+    PUSH_TO_CARD:  "30 minutes to 2 business days"
   };
-
-  // Humanize a deliverySLA from a live quote. The API returns it as an OBJECT
-  // ({ id: "INSTANT", name: "instant" }); older doc samples showed a bare
-  // string — accept either, and never throw on an unexpected shape.
-  function slaText(sla, method) {
-    if (sla && typeof sla === "object") sla = sla.id || sla.name || null;
-    if (!sla || typeof sla !== "string") return FALLBACK_ETA[method] || "Varies by destination";
-    switch (sla.toUpperCase()) {
-      // Observed live (sampled across 21 corridor/method pairs, 2026-10-28):
-      // NEXT_BUSINESS_DAY, SAME_BUSINESS_DAY, INSTANT. Those three are the ones
-      // that actually occur; the rest below are defensive mappings for values
-      // the API docs describe but that were never returned in practice.
-      case "INSTANT":            return "Within minutes";
-      case "SAME_BUSINESS_DAY":  return "Same business day";
-      case "NEXT_BUSINESS_DAY":  return "Next business day";
-      case "THIRTY_MINUTES":     return "Within ~30 minutes";
-      case "ONE_HOUR":           return "Within the hour";
-      case "SAME_DAY":           return "Same day, most locations";
-      case "ONE_BUSINESS_DAY":   return "1 business day";
-      case "TWO_BUSINESS_DAYS":  return "1–2 business days";
-      case "THREE_BUSINESS_DAYS":return "2–3 business days";
-      case "FIVE_BUSINESS_DAYS": return "Up to 5 business days";
-      default:
-        return sla.toLowerCase().replace(/_/g, " ").replace(/^\w/, function (m) { return m.toUpperCase(); });
-    }
-  }
+  function etaText(method) { return METHOD_ETA[method] || "Varies by destination"; }
 
   /* ---------------------------------------------------------------------
      Fee display config.
@@ -337,11 +318,10 @@
     els.rateLine.textContent = /limit/i.test(code || "")
       ? "Amount is outside the allowed range for this destination"
       : "Rate temporarily unavailable";
-    // No quote means no delivery estimate. The fallback table is illustrative
-    // and stating it here would promise a delivery time next to a dash and
-    // "Rate temporarily unavailable" — the same fabrication this function
-    // exists to avoid for the amount.
-    els.etaLine.textContent = "—";
+    // An out-of-range AMOUNT does not change how the method delivers, so keep
+    // the range in that case. A method that actually failed for this corridor
+    // is not usable at all, so it must not advertise a delivery time.
+    els.etaLine.textContent = /limit/i.test(code || "") ? etaText(method) : "—";
     renderFee(null);
   }
 
@@ -696,7 +676,7 @@
     var send = parseAmount(els.amount.value);
     // Fallback rows carry a rate; live rows converted to fallback won't — guard.
     var rate = typeof d.rate === "number" ? d.rate : 0;
-    render(rate, send * rate, d.dp, d.ccy, FALLBACK_ETA[method] || slaText(null, method));
+    render(rate, send * rate, d.dp, d.ccy, etaText(method));
     renderFee(typeof FEE.demoFee === "number" ? FEE.demoFee : null);
   }
 
@@ -707,7 +687,7 @@
       var d = current();
       var send = parseAmount(els.amount.value);
       if (!d || send <= 0) {
-        render(0, 0, d ? d.dp : 2, d ? d.ccy : SRC_CCY, slaText(null, method));
+        render(0, 0, d ? d.dp : 2, d ? d.ccy : SRC_CCY, etaText(method));
         renderFee(null);
         return;
       }
@@ -744,7 +724,7 @@
             return;
           }
           if (setMethodFailed(d, method, false)) updateMethodStates();
-          render(q.rate, q.receiveAmount, q.receiveDecimals, q.receiveCurrency, slaText(q.deliverySLA, method));
+          render(q.rate, q.receiveAmount, q.receiveDecimals, q.receiveCurrency, etaText(method));
           renderFee(typeof q.fee === "number" ? q.fee : null,
                     typeof q.feeOriginal === "number" ? q.feeOriginal : undefined);
           track("RateWidget - Quote Selected", trackCtx({

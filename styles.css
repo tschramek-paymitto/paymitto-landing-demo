@@ -762,6 +762,29 @@ h2.section-title {
 /* Currency label after the fee — subordinate to the amount. */
 .calc__line .fee-ccy { color: var(--pm-gray-600); font-weight: 700; }
 .calc__footnote { font-size: 0.74rem; color: var(--pm-gray-300); margin-top: 14px; text-align: center; }
+
+/* Footnote markers + the disclosures they point at. Disclosures are always
+   visible rather than hidden behind a tooltip: a disclosure that needs a click
+   to appear is a weaker disclosure. They sit below the CTA so six lines of
+   fine print don't push the action off-screen. */
+.fn-ref {
+  font-weight: 700;
+  color: var(--pm-meridian);
+  text-decoration: none;
+  padding: 0 1px;
+}
+.fn-ref sup { font-size: 0.68em; }
+.fn-ref:hover { text-decoration: underline; }
+.fn-ref:focus-visible { outline: 2px solid var(--pm-meridian); outline-offset: 2px; border-radius: 2px; }
+.calc__disclosures {
+  margin: 12px 0 0;
+  padding-left: 1.25em;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: var(--pm-gray-600);
+}
+.calc__disclosures li { margin-top: 7px; }
+.calc__disclosures li:target { color: var(--pm-black); }
 .calc .btn { margin-top: 18px; }
 
 /* --------------------------------------------------------------------------
