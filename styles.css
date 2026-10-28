@@ -444,6 +444,70 @@ h2.section-title {
 }
 .field__control select { font-size: 1.1rem; cursor: pointer; }
 
+/* Split money row: currency identity on the left, amount on the right.
+   We only ever send FROM USD, so the send row's chip is static text while the
+   receive row's chip IS the destination combobox trigger. */
+.field__label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--pm-gray-600);
+  margin-bottom: 7px;
+}
+.field__control--split { justify-content: space-between; gap: 12px; }
+.field--send .field__control--split input,
+.field--receive .field__control--split .amount {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  text-align: right;
+  font-size: 1.6rem;
+}
+
+.ccychip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  background: var(--pm-white);
+  border: 1.5px solid var(--pm-gray-100);
+  border-radius: var(--radius-pill);
+  padding: 6px 10px 6px 8px;
+}
+.ccychip__flag { font-size: 1.15rem; line-height: 1; flex: none; }
+.ccychip__code {
+  font-family: var(--pm-font-body);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--pm-black);
+}
+.ccychip--button { cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.ccychip--button:hover { border-color: var(--pm-meridian); background: var(--pm-snow); }
+
+/* The combobox reduced to a chip: it no longer fills the row, so the trigger
+   stops stretching and the panel needs an explicit width — anchored to a
+   ~110px chip it would otherwise render a 110px-wide country list. */
+.field__control--split .combo { flex: 0 1 auto; min-width: 0; }
+/* Progressive-enhancement fallback: without JS the native <select> is the
+   control, and at full-field width it overflowed the split row. Size it like
+   the chip it stands in for. */
+.field__control--split .combo__native {
+  width: auto;
+  max-width: 100%;
+  padding: 6px 10px;
+  font-size: 1rem;
+  border-radius: var(--radius-pill);
+  background: var(--pm-white);
+}
+.field__control--split .combo__trigger { width: auto; }
+.field__control--split .combo__value { flex: none; overflow: visible; }
+.field__control--split .combo__panel {
+  left: 0;
+  right: auto;
+  min-width: 300px;
+  max-width: calc(100vw - 44px);
+}
+
 /* ==========================================================================
    Destination combobox — a searchable dropdown.
    Custom DOM rather than a native <select> popup so it renders reliably inside

@@ -398,7 +398,8 @@
     empty:   $("country-empty"),
     status:  $("country-status"),
     flag:    $("country-flag"),
-    valueEl: $("country-value")
+    valueEl: $("country-value"),
+    nameEl:  $("country-name")
   };
   var comboRows = [];
   var comboActive = -1;
@@ -519,7 +520,13 @@
     if (!combo.valueEl) return;
     var d = destinations[comboSelectedIndex()];
     if (combo.flag) combo.flag.textContent = d ? flagF1(d) : "🌐";
-    combo.valueEl.textContent = d ? (d.name + " (" + d.ccy + ")") : "Select a destination";
+    // The chip shows only the currency code, so the full country name rides in a
+    // visually hidden span — without it the trigger's accessible name would
+    // collapse to a bare "MXN".
+    combo.valueEl.textContent = d ? d.ccy : "\u2014";
+    if (combo.nameEl) {
+      combo.nameEl.textContent = d ? (d.name + " (" + d.ccy + ")") : "No destination selected";
+    }
     if (comboIsOpen()) comboRender(combo.search ? combo.search.value : "");
   }
 
