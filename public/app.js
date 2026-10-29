@@ -107,7 +107,8 @@
   };
 
   var FEE = window.PAYMITTO_FEE || {
-    demoFee:      0     // fee shown in illustrative fallback (0 => showcases the waived $0.00 look)
+    demoFee:      0,    // fee shown in sample mode (0 => showcases the waived $0.00 look)
+    demoFeeWas:   2.99  // struck-through "standard" fee — SAMPLE MODE ONLY, see renderFee
   };
 
   /* ---------------------------------------------------------------------
@@ -375,13 +376,24 @@
   function renderFee(fee, feeOriginal) {
     if (!els.feeLine) return;
     if (typeof fee !== "number") { els.feeLine.textContent = "—"; return; }
-    // The struck-through "was" price may ONLY come from a real pre-discount fee
-    // returned by the promotion endpoint. There used to be a hardcoded 2.99
-    // fallback here, guarded on `fee === 0` with no mode check — so a LIVE $0
-    // quote with no promotion record rendered a savings claim against a price
-    // nobody was ever charged. That is fictitious reference pricing, on a
-    // regulated institution's public page. No real feeOriginal, no strike.
-    var was = (typeof feeOriginal === "number" && feeOriginal > fee) ? feeOriginal : null;
+    // A struck-through price is a savings claim, so where it may come from
+    // depends on the mode — and the mode check is the whole point.
+    //
+    // LIVE: only from feeOriginal, the real pre-discount fee the promotion
+    // endpoint returned (original = net fee + feeDiscountAmount). Striking an
+    // invented price against a real quote is fictitious reference pricing.
+    // This previously had a hardcoded 2.99 guarded on `fee === 0` alone with
+    // no mode check, so a live $0 quote carrying no promotion record rendered
+    // a saving nobody was ever offered.
+    //
+    // SAMPLE: the card declares itself — "Sample data" badge, "Illustrative
+    // rates for demonstration only" footnote — so every figure on it is
+    // already understood as invented, and the strike is part of that sample
+    // rather than a claim about real pricing. It also demonstrates the
+    // promotion treatment, which is something the widget genuinely does.
+    var was = (typeof feeOriginal === "number" && feeOriginal > fee) ? feeOriginal
+      : (!live && fee === 0 && typeof FEE.demoFeeWas === "number" && FEE.demoFeeWas > fee
+          ? FEE.demoFeeWas : null);
     // The fee is charged in the SOURCE currency — label it (e.g. "$0.00 USD"),
     // matching how the receive amount carries its currency. SRC_CCY comes from
     // our own API, but guard its shape before it touches innerHTML.
