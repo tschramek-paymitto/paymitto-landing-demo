@@ -15,7 +15,11 @@
 # published to the browser. See .env.example.
 
 [build]
-  publish = "."
+  # publish MUST be a directory containing only site files. It used to be "."
+  # — the repo root — which served /.env, /docs/security-hardening-review.md,
+  # the function source and README.md over HTTP. Verified: /.env returned 200
+  # with all five real credentials. Harmless on localhost, published on deploy.
+  publish = "public"
   command = ""
 
 [build.environment]
