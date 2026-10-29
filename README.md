@@ -74,6 +74,44 @@ the promo price beside it. The overlay is one declarative config — `PROMO` in
 So a running $0 promo renders `~~$4.50~~ $0.00` off the live rate; end it (or let
 `endsOn` pass) and the same line shows the live `$4.50` on its own — no code change.
 
+## Embedding the widget on a client page
+
+The widget is embeddable on its own — a client drops **one line** on their homepage:
+
+```html
+<script src="https://<host>/embed.js" data-client="keystone" data-amount="100" async></script>
+```
+
+That inserts the widget iframe in place and keeps its height in sync as the
+widget grows (it posts its height; the loader applies it after verifying the
+message came from our origin *and* from that frame).
+
+Clients with a strict CSP who can't add a script can paste the iframe directly:
+
+```html
+<iframe src="https://<host>/embed.html?client=keystone&amount=100"
+        title="Global Transfers rate calculator"
+        style="border:0;width:100%;max-width:480px;min-height:480px"
+        loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+```
+
+**Parameters** (all optional except `client`): `client`, `amount`, `corridor`
+(ISO3, e.g. `MEX`), `src`, `theme`, `lang`. With the script loader you can also
+set `data-max-width` / `data-min-height`. Every value is public display config
+and is sanitised — no secrets ever go in the URL. A `corridor` the client isn't
+enabled for is ignored rather than offered.
+
+`allow-top-navigation` is deliberately omitted from the sandbox, so the widget
+can never redirect the host page; the CTA opens in a new tab.
+
+See **[`/embed-example.html`](embed-example.html)** for a working stand-in of a
+client homepage with the widget embedded both ways.
+
+Both concept pages eat their own dog food: the calculator band on `/` and
+`/keystone/` is this same one-line embed, not a copy of the widget's markup. So
+whatever a client gets is exactly what the demos show.
+
 ## Run locally
 Plain static preview (falls back to illustrative rates — no functions):
 
@@ -95,6 +133,10 @@ npx netlify dev        # serves the site + /api/* on one origin
 index.html              Concept A — Riverstone Credit Union (Mitto)
 styles.css              Shared PayMitto design system + layout
 app.js                  Shared logic: live rate calculator, nav, FAQ, scroll reveal
+embed.html              The widget on its own — what the iframe loads
+embed.js                One-line loader clients drop on their page
+embed-theme.js          Allowlisted ?theme= loader for the embed
+embed-example.html      Stand-in client homepage showing both embed methods
 keystone/
   index.html            Concept B — Keystone Bank (GlobalSend)
   keystone-theme.css    Concept B theme layer (premium / Meridian / squared)

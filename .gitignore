@@ -4,3 +4,6 @@
 !.env.example
 .netlify
 node_modules
+
+# Scratch/test pages (e.g. __embedtest.html) — never part of the site
+__*.html

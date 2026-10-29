@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "PayMitto global-transfer landing-page demos with a live-FX quote widget.",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "netlify dev",
     "verify:oauth": "node scripts/verify-oauth.mjs"

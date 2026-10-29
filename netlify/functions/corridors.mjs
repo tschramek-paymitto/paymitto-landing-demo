@@ -10,10 +10,18 @@
    IP and the (rarely-changing) result is cached briefly. Falls back to 503
    (→ browser uses illustrative demo list) when creds are absent.
    ========================================================================== */
-import { hasCredentials, readyremitGet, json } from "./_readyremit.mjs";
+import { hasCredentials, hasSender, readyremitGet, json } from "./_readyremit.mjs";
 import { clientIp, rateLimit, TTLCache } from "./_util.mjs";
 
 const SRC_CURRENCY = process.env.READYREMIT_SRC_CURRENCY || "USD";
+
+// Mixpanel is per-client opt-in. The TOKEN IS NEVER SENT TO THE BROWSER: this
+// response is public, unauthenticated and cached for 5 minutes, so a token in
+// it could be read with a single curl by someone who never loaded the widget.
+// Only the on/off flag and the tenant id travel; events go through
+// POST /api/track, which holds the token server-side.
+const MP_TOKEN  = process.env.MIXPANEL_TOKEN || "";
+const MP_CLIENT = process.env.MIXPANEL_CLIENT_ID || null;
 
 const cache = new TTLCache();
 const CACHE_TTL = 5 * 60 * 1000; // corridors change rarely
@@ -23,7 +31,10 @@ export default async (req) => {
   const rl = rateLimit(`corridors:${clientIp(req)}`, RL_LIMIT, RL_WINDOW);
   if (!rl.ok) return json(429, { error: "rate_limited" }, { "retry-after": String(rl.retryAfter) });
 
-  if (!hasCredentials()) return json(503, { error: "not_configured" });
+  // Live mode is all-or-nothing: without a Sender ID we can't quote, so don't
+  // offer a live dropdown we can't price — let the browser use the full
+  // illustrative fallback instead.
+  if (!hasCredentials() || !hasSender()) return json(503, { error: "not_configured" });
 
   const cacheKey = `corridors:${SRC_CURRENCY}`;
   const cached = cache.get(cacheKey);
@@ -40,7 +51,12 @@ export default async (req) => {
 
     for (const c of rows) {
       const country  = c.destinationCountry || {};
-      const currency = c.destinationCurrency || {};
+      // The live API returns sourceCurrency / destinationCurrency as ARRAYS
+      // (the doc samples showed objects). Take the first entry; stay defensive
+      // in case a future response reverts to an object.
+      const currency = Array.isArray(c.destinationCurrency)
+        ? (c.destinationCurrency[0] || {})
+        : (c.destinationCurrency || {});
       const iso3 = country.iso3Code;
       if (!iso3) continue;
 
@@ -49,6 +65,7 @@ export default async (req) => {
         entry = {
           name:          country.name || iso3,
           countryIso3:   iso3,
+          countryIso2:   country.iso2Code || null,
           currencyIso3:  currency.iso3Code || null,
           currencySymbol:currency.symbol || null,
           decimalPlaces: currency.decimalPlaces ?? 2,
@@ -65,10 +82,16 @@ export default async (req) => {
       .filter((e) => e.currencyIso3 && e.methods.length)
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    const payload = { srcCurrency: SRC_CURRENCY, corridors };
+    const payload = {
+      srcCurrency: SRC_CURRENCY,
+      corridors,
+      analytics: { enabled: Boolean(MP_TOKEN), clientId: MP_CLIENT }
+    };
     cache.set(cacheKey, payload, CACHE_TTL);
     return json(200, payload, { "x-cache": "MISS", "cache-control": "public, max-age=300" });
   } catch (e) {
-    return json(502, { error: "exception", message: String(e?.message || e) });
+    // Log detail server-side only; return a generic body to the public caller.
+    console.error("corridors error:", e && e.message ? e.message : e);
+    return json(502, { error: "upstream_unavailable" });
   }
 };

@@ -9,15 +9,15 @@
    shared store (Netlify Blobs / Redis); the call sites won't change.
    ========================================================================== */
 
-/** Best-effort client IP from Netlify / proxy headers. */
+/** Client IP for the rate-limit key — ONLY from the platform-set header.
+ *  A client-supplied X-Forwarded-For is spoofable (trivial per-IP limit
+ *  bypass), so we never use it as the key; absent the trusted header we fail
+ *  closed into a single shared "unknown" bucket. On Azure this becomes the
+ *  Front Door-injected client IP header. */
 export function clientIp(req) {
   const h = req && req.headers;
   const get = (k) => (h && typeof h.get === "function" ? h.get(k) : h && h[k]);
-  const nf = get("x-nf-client-connection-ip");
-  if (nf) return nf;
-  const xff = get("x-forwarded-for");
-  if (xff) return String(xff).split(",")[0].trim();
-  return "unknown";
+  return get("x-nf-client-connection-ip") || "unknown";
 }
 
 // --- sliding-window rate limiter -----------------------------------------

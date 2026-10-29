@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Global Transfers rate calculator</title>
+  <meta name="robots" content="noindex" />
+
+  <!-- Brand fonts. NOTE: the hosted design self-hosts these so the widget can
+       keep font-src 'self'; Google Fonts is used here for visual parity only. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Pathway+Extreme:wght@400;700&family=Karla:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/embed-theme.js"></script>
+  <style>
+    /* The widget IS the page here: no chrome, transparent ground so it sits on
+       whatever background the host page has. */
+    /* height:auto overrides styles.css:73 (html,body{height:100%}) for the
+       embed only. With it, body is pinned to the iframe viewport and cannot
+       report a height below whatever the parent last set. */
+    html, body { margin: 0; padding: 0; background: transparent; height: auto; }
+    .embed-wrap { max-width: 480px; margin: 0 auto; padding: 10px; }
+    .embed-wrap .calc { margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="embed-wrap">
+    <div class="calc" id="calc">
+      <div class="calc__head">
+        <h3>Estimate your transfer</h3>
+        <span class="calc__badge" id="calc-badge">Sample data</span>
+      </div>
+
+      <div class="field field--send">
+        <label for="send-amount">Total you send</label>
+        <div class="field__control field__control--split">
+          <span class="ccychip ccychip--static">
+            <span class="ccychip__flag" aria-hidden="true">🇺🇸</span>
+            <span class="ccychip__code">USD</span>
+          </span>
+          <input id="send-amount" type="text" inputmode="decimal" value="100" aria-label="Amount to send in US dollars" />
+        </div>
+      </div>
+
+      <!-- Recipient row: the destination combobox IS the currency chip on the left,
+           the computed amount sits on the right. We only ever send FROM USD, so the
+           send row's chip above is static while this one is the selector. -->
+      <div class="field field--receive">
+        <span class="field__label" id="recv-label">Total to recipient</span>
+        <div class="field__control field__control--split">
+          <div class="combo" id="country-combo">
+            <span class="sr-only" id="dest-label">Destination</span>
+            <span class="sr-only" id="country-name">No destination selected</span>
+            <button type="button" id="country-trigger" class="combo__trigger ccychip ccychip--button"
+                    aria-haspopup="listbox" aria-expanded="false"
+                    aria-labelledby="dest-label country-name">
+              <span class="combo__flag ccychip__flag" id="country-flag" aria-hidden="true">🌐</span>
+              <span class="combo__value ccychip__code" id="country-value">—</span>
+              <svg class="combo__chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="combo__panel" id="country-panel" hidden>
+              <div class="combo__search">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <input type="text" id="country-search" role="combobox" aria-expanded="false"
+                       aria-controls="country-listbox" aria-autocomplete="list" autocomplete="off"
+                       autocorrect="off" autocapitalize="none"
+                       spellcheck="false" placeholder="Type a country or currency" aria-label="Search destinations" />
+              </div>
+              <ul class="combo__list" id="country-listbox" role="listbox" aria-label="Destinations"></ul>
+              <p class="combo__empty" id="country-empty" aria-hidden="true" hidden>No destinations match that search.</p>
+              <div id="country-status" class="sr-only" role="status" aria-live="polite"></div>
+            </div>
+            <!-- State + no-JS fallback; the combobox above is the accessible UI. -->
+            <select id="country" class="combo__native" tabindex="-1" aria-hidden="true"></select>
+          </div>
+          <span class="amount" id="receive-amount" aria-labelledby="recv-label">—</span>
+          <!-- Currency is shown in the chip on the left; kept here, visually hidden,
+               so the amount still announces its unit and app.js keeps its handle. -->
+          <span class="ccy sr-only" id="receive-ccy">MXN</span>
+        </div>
+      </div>
+      <p class="sr-only" id="quote-status" role="status"></p>
+
+      <div class="calc__methods" role="group" aria-label="Delivery method">
+        <button type="button" data-method="bank" aria-pressed="false">Bank account</button>
+        <button type="button" data-method="debit" aria-pressed="false">Debit card deposit</button>
+        <button type="button" data-method="cash" class="active" aria-pressed="true">Cash pickup</button>
+      </div>
+
+      <div class="calc__lines">
+        <p class="calc__note" id="quote-note" hidden></p>
+        <div class="calc__line"><span>Estimated exchange rate</span><strong id="rate-line">—</strong></div>
+        <div class="calc__line"><span>Estimated transfer fees<a class="fn-ref" href="#fn-fees" aria-label="Footnote 1, about transfer fees"><sup>1</sup></a></span><span id="fee-line">—</span></div>
+        <div class="calc__line"><span>Estimated delivery<a class="fn-ref" href="#fn-delivery" aria-label="Footnote 2, about delivery timing"><sup>2</sup></a></span><strong id="eta-line">Within minutes</strong></div>
+      </div>
+
+      <a class="btn btn--primary btn--block btn--lg" href="#">Send money</a>
+      <p class="calc__footnote" id="calc-footnote">Illustrative rates for demonstration only.</p>
+      <ol class="calc__disclosures">
+        <li id="fn-fees">Transfer fees vary based on destination country, delivery method, and amount sent. Additional fees may be charged by the recipient’s bank, wallet provider, or pickup location. Recipient may receive less due to fees charged by the recipient’s bank and foreign taxes.</li>
+        <li id="fn-delivery">Funds typically arrive by the next business day. Timing may vary based on the destination country, delivery method, and the local operating hours of the receiving bank, wallet provider, or cash pickup location.</li>
+      </ol>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
