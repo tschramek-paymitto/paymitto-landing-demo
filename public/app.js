@@ -901,47 +901,67 @@
       startFallback();
     });
 
-  /* ---------------------------------------------------------------------
-     Promo ribbon dismiss
-     --------------------------------------------------------------------- */
-  var ribbon = $("ribbon");
-  var ribbonClose = $("ribbon-close");
-  if (ribbonClose && ribbon) {
-    ribbonClose.addEventListener("click", function () { ribbon.remove(); });
-  }
+})();
 
-  /* ---------------------------------------------------------------------
-     Mobile nav
-     --------------------------------------------------------------------- */
-  var nav = $("nav");
-  var navToggle = $("nav-toggle");
-  if (navToggle && nav) {
-    navToggle.addEventListener("click", function () {
-      var open = nav.classList.toggle("open");
-      navToggle.setAttribute("aria-expanded", open ? "true" : "false");
-    });
-    nav.querySelectorAll(".nav__links a, .nav__actions a").forEach(function (a) {
-      a.addEventListener("click", function () {
-        nav.classList.remove("open");
-        navToggle.setAttribute("aria-expanded", "false");
-      });
-    });
-  }
+/* ==========================================================================
+   Landing-page chrome — promo ribbon, mobile nav, reveal-on-scroll.
 
-  /* ---------------------------------------------------------------------
-     Reveal on scroll
-     --------------------------------------------------------------------- */
-  var reveals = document.querySelectorAll(".reveal");
-  if ("IntersectionObserver" in window && reveals.length) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
-      });
-    }, { threshold: 0.15 });
-    reveals.forEach(function (el) { io.observe(el); });
-  } else {
-    reveals.forEach(function (el) { el.classList.add("in"); });
-  }
+   Deliberately its OWN IIFE. These used to live inside the calculator's IIFE,
+   below a `if (!els.country || !els.amount) return;` guard meaning "no
+   calculator on this page". That guard was correct while the calculator was
+   inline in the page. Once it moved into the embed iframe, #country and
+   #send-amount stopped existing on the landing pages, so the guard fired
+   there and silently took the ribbon, the nav and every .reveal section with
+   it — the page rendered its headings and nothing underneath them.
+
+   Page chrome has no business depending on whether a calculator is present.
+   ========================================================================== */
+(function () {
+  // Own copy: the calculator IIFE has its own $, and this block can no longer
+  // reach it — which is exactly the bug that moving these out introduced.
+  var $ = function (id) { return document.getElementById(id); };
+
+/* ---------------------------------------------------------------------
+   Promo ribbon dismiss
+   --------------------------------------------------------------------- */
+var ribbon = $("ribbon");
+var ribbonClose = $("ribbon-close");
+if (ribbonClose && ribbon) {
+  ribbonClose.addEventListener("click", function () { ribbon.remove(); });
+}
+
+/* ---------------------------------------------------------------------
+   Mobile nav
+   --------------------------------------------------------------------- */
+var nav = $("nav");
+var navToggle = $("nav-toggle");
+if (navToggle && nav) {
+  navToggle.addEventListener("click", function () {
+    var open = nav.classList.toggle("open");
+    navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  nav.querySelectorAll(".nav__links a, .nav__actions a").forEach(function (a) {
+    a.addEventListener("click", function () {
+      nav.classList.remove("open");
+      navToggle.setAttribute("aria-expanded", "false");
+    });
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Reveal on scroll
+   --------------------------------------------------------------------- */
+var reveals = document.querySelectorAll(".reveal");
+if ("IntersectionObserver" in window && reveals.length) {
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.15 });
+  reveals.forEach(function (el) { io.observe(el); });
+} else {
+  reveals.forEach(function (el) { el.classList.add("in"); });
+}
 })();
 
 /* ==========================================================================
