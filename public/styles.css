@@ -783,7 +783,15 @@ h2.section-title {
 }
 .calc__note[hidden] { display: none; }
 
-.calc__footnote { font-size: 0.74rem; color: var(--pm-gray-300); margin-top: 14px; text-align: center; }
+/* This line states whether the numbers above are real. At gray-300 / 0.74rem it
+   was the least prominent element on the card, which was tolerable when it only
+   appeared on a transient fallback and is not now that sample data is the
+   permanent state. gray-600 measures 6.08:1 on the card. */
+.calc__footnote { font-size: 0.8rem; color: var(--pm-gray-600); margin-top: 14px; text-align: center; }
+
+/* The status pill is green — "live and good". Sample data is neither, so it
+   goes neutral rather than wearing a success colour. */
+.calc__badge--sample { color: var(--pm-gray-600); background: var(--pm-gray-100); }
 
 /* Footnote markers + the disclosures they point at. Disclosures are always
    visible rather than hidden behind a tooltip: a disclosure that needs a click

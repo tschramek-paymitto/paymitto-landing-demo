@@ -228,6 +228,7 @@
     etaLine:    $("eta-line"),
     feeLine:    $("fee-line"),
     footnote:   $("calc-footnote"),
+    badge:      $("calc-badge"),
     note:       $("quote-note"),
     status:     $("quote-status"),
     methodsWrap:document.querySelector(".calc__methods")
@@ -236,7 +237,16 @@
   // Rate-disclosure copy: honest about whether numbers are live or illustrative.
   var FOOTNOTE_LIVE = "Live indicative rate. The exact amount is confirmed before you send.";
   var FOOTNOTE_DEMO = "Illustrative rates for demonstration only.";
+  // Live-vs-mocked is stated in TWO places and they must never disagree. The
+  // badge used to read "Live demo" permanently while the footnote said
+  // "Illustrative rates for demonstration only" — the louder of the two was
+  // the false one. Both are driven from here now, so adding credentials flips
+  // the whole card rather than half of it.
   function setFootnote(isLive) {
+    if (els.badge) {
+      els.badge.textContent = isLive ? "Live rates" : "Sample data";
+      els.badge.classList.toggle("calc__badge--sample", !isLive);
+    }
     if (els.footnote) els.footnote.textContent = isLive ? FOOTNOTE_LIVE : FOOTNOTE_DEMO;
   }
 
