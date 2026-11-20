@@ -1,7 +1,7 @@
 /* Applies a concept theme inside the embed, from ?theme=.
    Allowlisted only — a tenant can never point this at an arbitrary stylesheet. */
 (function () {
-  var THEMES = { keystone: "/keystone/keystone-theme.css" };
+  var THEMES = { keystone: "keystone/keystone-theme.css" };
   try {
     var t = (new URLSearchParams(location.search).get("theme") || "")
               .replace(/[^a-z0-9-]/gi, "").toLowerCase();
