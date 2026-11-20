@@ -18,8 +18,13 @@
   if (!me || me.dataset.pmLoaded) return;
   me.dataset.pmLoaded = "1";
 
-  var origin;
-  try { origin = new URL(me.src, location.href).origin; } catch (e) { return; }
+  // Resolve embed.html next to this script, so the widget works whether the
+  // site is served from a domain root (Netlify) or a subpath (GitHub Pages).
+  var origin, frameUrl;
+  try {
+    frameUrl = new URL("embed.html", new URL(me.src, location.href));
+    origin = frameUrl.origin;
+  } catch (e) { return; }
 
   var d = me.dataset || {};
   var qs = new URLSearchParams();
@@ -28,7 +33,8 @@
   });
 
   var frame = document.createElement("iframe");
-  frame.src = origin + "/embed.html" + (qs.toString() ? "?" + qs.toString() : "");
+  frameUrl.search = qs.toString();
+  frame.src = frameUrl.href;
   frame.title = "Global Transfers rate calculator";
   frame.loading = "lazy";
   frame.referrerPolicy = "strict-origin-when-cross-origin";
